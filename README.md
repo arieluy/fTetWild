@@ -1,8 +1,8 @@
 ## Summary
 We are going to further parallelize the fast Tetrahedral Meshing Algorithm on the Bridges supercomputer, using both shared-memory and message-passing parallelism. We aim to maximize speedup and scalability, allowing for much faster mesh computations.
 
-Project Website: <https://auy86.github.io/418-mesh-gen/> <br>
-Project Repo: <https://github.com/auy86/418-mesh-gen/>
+Project Website: <https://auy86.github.io/fTetWild/> <br>
+Project Repo: <https://github.com/auy86/fTetWild/>
 
 ## Background
 The meshing problem is an old one, having deep roots in geometry, computer graphics, and numerical simulation. Given a represenation for a domain, how can we transform this into a well structured mesh which well approximates and discretizes the domain, leading to accurate and stable computation? The Fast Tet Meshing Algorithm (FTMA) presented in 2017 at SGP gives major speedup to the classic Tet Meshing Algorithm: Given a surface in 3D space represented as a triangle soup, i.e. an arbitrary collection of triangles, how can we best mesh the interior volume with tetrahedra? At a high level, the approach can be broken into four parts:
