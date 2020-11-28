@@ -30,6 +30,7 @@
 #include <igl/Timer.h>
 #include <igl/write_triangle_mesh.h>
 
+//?When is this true
 #ifdef LIBIGL_WITH_TETGEN
 #include <igl/copyleft/tetgen/tetrahedralize.h>
 #endif
@@ -97,6 +98,7 @@ int main(int argc, char **argv) {
 #ifdef STORE_SAMPLE_POINTS
     cout<<"STORE_SAMPLE_POINTS defined"<<endl;
 #endif
+
 
 //    connect_2_meshes("/Users/yixinhu/Downloads/test_cutting/100729.stl",
 //                     "/Users/yixinhu/Downloads/test_cutting/37627.stl");
@@ -222,6 +224,8 @@ int main(int argc, char **argv) {
     std::string background_mesh = "";
     command_line.add_option("--bg-mesh", background_mesh, "Background mesh for sizing field (.msh file).")->check(CLI::ExistingFile);
 
+    printf("\n\n\nBREAKPOINT main:255\n\n\n");
+
 #ifdef NEW_ENVELOPE
     std::string epsr_tags;
     command_line.add_option("--epsr-tags", epsr_tags, "List of envelope size for each input faces.")->check(CLI::ExistingFile);
@@ -235,13 +239,14 @@ int main(int argc, char **argv) {
     command_line.add_option("--max-threads", max_threads, "Maximum number of threads used");
 #endif
 
+    //Reading in command line input
     try {
         command_line.parse(argc, argv);
     } catch (const CLI::ParseError &e) {
         return command_line.exit(e);
     }
 
-
+//This is where hte parallelism comes in
 #ifdef FLOAT_TETWILD_USE_TBB
     const size_t MB = 1024 * 1024;
     const size_t stack_size = 64 * MB;
@@ -286,15 +291,18 @@ int main(int argc, char **argv) {
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     ///set sizing field
+    printf("\n\n\nBreakpoint main 294: \n\n\n");
     Eigen::VectorXd V_in;
     Eigen::VectorXi T_in;
     Eigen::VectorXd values;
+    //If a background mesh is supplied load it
     if(!background_mesh.empty()) {
         PyMesh::MshLoader mshLoader(background_mesh);
         V_in = mshLoader.get_nodes();
         T_in = mshLoader.get_elements();
         values = mshLoader.get_node_field("values");
     }
+    //If we have an input background mesh
     if (V_in.rows() != 0 && T_in.rows() != 0 && values.rows() != 0) {
         params.apply_sizing_field = true;
         params.get_sizing_field_value = [&V_in, &T_in, &values](const Vector3 &p) {
@@ -337,6 +345,7 @@ int main(int argc, char **argv) {
             return value;// / mesh.params.ideal_edge_length;
         };
     }
+    printf("\n\n\nBreakpoint main 348: \n\n\n");
 
     ///set input tage
     std::vector<Vector3> input_vertices;
@@ -356,6 +365,7 @@ int main(int argc, char **argv) {
         }
     }
 
+//If we want a new envelope?
 #ifdef NEW_ENVELOPE
     if(!epsr_tags.empty()) {
         std::ifstream fin(epsr_tags);
@@ -421,6 +431,8 @@ int main(int argc, char **argv) {
         tree.init_sf_tree(input_vertices, input_faces, params.eps);
 #endif
 
+//I think this is creating the background mesh
+printf("\nBreakpoint main 435: \n");
 #ifdef LIBIGL_WITH_TETGEN
     if(run_tet_gen)
     {
@@ -447,17 +459,25 @@ int main(int argc, char **argv) {
         Eigen::MatrixXi tetgen_generated_faces;
 
         timer.start();
+        //Is this the actual function: Tetrahedralization? : Maybe not(Doesn't run by default)
+        printf("\n\n\nBREAKPOINT main: 457\n\n\n");
         igl::copyleft::tetgen::tetrahedralize(tetgen_pts, tetgen_faces, buf.str(), tetgen_generated_points, tetgen_generated_tets, tetgen_generated_faces);
         timer.stop();
+        printf("\n\n\nBREAKPOINT main: 460\n\n\n");
         logger().info("Tetgen time {}s", timer.getElapsedTimeInSec());
         stats().record(StateInfo::tetgen_id, timer.getElapsedTimeInSec(), tetgen_generated_points.rows(), tetgen_generated_tets.rows(), 0, 0);
     }
 #endif
+printf("\nBreakpoint main 471: \n\n");
 
     stats().record(StateInfo::init_id, 0, input_vertices.size(), input_faces.size(), -1, -1);
 
+    //This is simplifying the mesh(before any generation?)
     timer.start();
+    printf("\nBreakpoint main 477: \n\n");
+    //This is collapsing close vertices, etc
     simplify(input_vertices, input_faces, input_tags, tree, params, skip_simplify);
+    printf("\nBreakpoint main 479: \n\n");
     tree.init_b_mesh_and_tree(input_vertices, input_faces, mesh);
     logger().info("preprocessing {}s", timer.getElapsedTimeInSec());
     logger().info("");
@@ -468,7 +488,11 @@ int main(int argc, char **argv) {
 
     timer.start();
     std::vector<bool> is_face_inserted(input_faces.size(), false);
+    //We are tetrahedralizing something: Is this where background mesh generated?
+    printf("\nBreakpoint main 492(background mesh?): \n\n");
     FloatTetDelaunay::tetrahedralize(input_vertices, input_faces, tree, mesh, is_face_inserted);
+    printf("\nBreakpoint main 494: \n\n");
+    printf("%f",timer.getElapsedTimeInSec());
     logger().info("#v = {}", mesh.get_v_num());
     logger().info("#t = {}", mesh.get_t_num());
     logger().info("tetrahedralizing {}s", timer.getElapsedTimeInSec());
@@ -476,8 +500,12 @@ int main(int argc, char **argv) {
     stats().record(StateInfo::tetrahedralization_id, timer.getElapsedTimeInSec(), mesh.get_v_num(), mesh.get_t_num(),
                    -1, -1);
 
+    //This is where triangle insertion starts
     timer.start();
+    printf("\nBreakpoint main 504(Inserting triangles): \n\n");
     insert_triangles(input_vertices, input_faces, input_tags, mesh, is_face_inserted, tree, false);
+    printf("\nBreakpoint main 506: \n\n");
+    printf("%f",timer.getElapsedTimeInSec());
     logger().info("cutting {}s", timer.getElapsedTimeInSec());
     logger().info("");
     stats().record(StateInfo::cutting_id, timer.getElapsedTimeInSec(), mesh.get_v_num(), mesh.get_t_num(),
@@ -494,14 +522,21 @@ int main(int argc, char **argv) {
 //                                                   std::count(is_face_inserted.begin(), is_face_inserted.end(), false));
 
     timer.start();
+    //What is optimization doing?
+    printf("\nBreakpoint main 526: \n\n");
+    //The bulk(vast majority) happens here(but still mostly probably because of triangle insertsion: should get timing on this)
     optimization(input_vertices, input_faces, input_tags, is_face_inserted, mesh, tree, {{1, 1, 1, 1}});
+    printf("\nBreakpoint main 528: \n\n");
     logger().info("mesh optimization {}s", timer.getElapsedTimeInSec());
     logger().info("");
     stats().record(StateInfo::optimization_id, timer.getElapsedTimeInSec(), mesh.get_v_num(), mesh.get_t_num(),
                    mesh.get_max_energy(), mesh.get_avg_energy());
 
     timer.start();
+    //Surface orientation?
+    printf("\nBreakpoint main 536: \n\n");
     correct_tracked_surface_orientation(mesh, tree);
+    printf("\nBreakpoint main 538: \n\n");
     logger().info("correct_tracked_surface_orientation done");
     if(!csg_file.empty())
         boolean_operation(mesh, tree_with_ids, meshes);
@@ -527,6 +562,7 @@ int main(int argc, char **argv) {
     }
     Eigen::MatrixXd V_sf;
     Eigen::MatrixXi F_sf;
+    //Forcing surface to be manifold
     if(params.manifold_surface){
         manifold_surface(mesh, V_sf, F_sf);
     } else {
@@ -561,6 +597,7 @@ int main(int argc, char **argv) {
         }
     }
     //fortest
+    //Thi sis probably just exporting?
     MeshIO::write_mesh(output_mesh_name, mesh, false, colors, !nobinary, !csg_file.empty());
     igl::write_triangle_mesh(params.output_path + "_" + params.postfix + "_sf.obj", V_sf, F_sf);
 //    MeshIO::write_surface_mesh(params.output_path + "_" + params.postfix + "_sf.obj", mesh, false);

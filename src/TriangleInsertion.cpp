@@ -145,6 +145,7 @@ void floatTetWild::sort_input_faces(const std::vector<Vector3> &input_vertices, 
 //    });
 }
 
+//Function we will be parallelizing: Want to parallelize calls to insert triangles
 void floatTetWild::insert_triangles(const std::vector<Vector3> &input_vertices,
                                     const std::vector<Vector3i> &input_faces, const std::vector<int> &input_tags,
                                     Mesh &mesh, std::vector<bool> &is_face_inserted, AABBWrapper &tree, bool is_again) {
@@ -186,6 +187,7 @@ void floatTetWild::insert_triangles(const std::vector<Vector3> &input_vertices,
         v.is_freezed = false;
     }
 
+    //What does AUx do?
     insert_triangles_aux(input_vertices, input_faces, input_tags, mesh, is_face_inserted, tree, is_again);
 }
 
@@ -237,6 +239,7 @@ void floatTetWild::optimize_non_surface(const std::vector<Vector3> &input_vertic
         v.is_freezed = false;
 }
 
+//Actual function we're parallelizing. Just gets called by insert_triangles
 void floatTetWild::insert_triangles_aux(const std::vector<Vector3> &input_vertices,
         const std::vector<Vector3i> &input_faces, const std::vector<int> &input_tags,
         Mesh &mesh, std::vector<bool> &is_face_inserted,
@@ -253,6 +256,7 @@ void floatTetWild::insert_triangles_aux(const std::vector<Vector3> &input_vertic
     int cnt_matched = std::count(is_face_inserted.begin(), is_face_inserted.end(), true);
     logger().info("matched #f = {}, uninserted #f = {}", cnt_matched, is_face_inserted.size() - cnt_matched);
 
+    //sort the faces?
     std::vector<int> sorted_f_ids;
     sort_input_faces(input_vertices, input_faces, mesh, sorted_f_ids);
 
@@ -262,42 +266,13 @@ void floatTetWild::insert_triangles_aux(const std::vector<Vector3> &input_vertic
     int cnt_fail = 0;
     int cnt_total = 0;
 
-    /////
-//    if(!is_again) {
-//        std::vector<std::vector<int>> conn_fs(input_vertices.size());
-//        for (int i = 0; i < input_faces.size(); i++) {
-//            for (int j = 0; j < 3; j++)
-//                conn_fs[input_faces[i][j]].push_back(i);
-//        }
-//        std::vector<bool> is_visited(input_faces.size(), false);
-//        std::vector<Vector3> ns(input_faces.size());
-//        for (int i = 0; i < input_faces.size(); i++) {
-//            ns[i] = (input_vertices[input_faces[i][1]] - input_vertices[input_faces[i][0]]).cross(
-//                    input_vertices[input_faces[i][2]] - input_vertices[input_faces[i][0]]).normalized();
-//        }
-//        for (int i = 0; i < sorted_f_ids.size(); i++) {
-//            int f_id = sorted_f_ids[i];
-//            if (is_face_inserted[f_id])
-//                continue;
-//
-//            std::vector<int> f_ids;
-//            if (insert_multi_triangles(f_id, input_vertices, input_faces, input_tags,
-//                                       conn_fs, ns, is_visited, f_ids,
-//                                       mesh, track_surface_fs, tree, is_again)) {
-//                for (int inserted_f_id: f_ids)
-//                    is_face_inserted[inserted_f_id] = true;
-//            } else
-//                cnt_total += f_ids.size();
-//            cnt_total += f_ids.size();
-//        }
-//        logger().info("insert_multi_triangles * n done, #v = {}, #t = {}", mesh.tet_vertices.size(), mesh.tets.size());
-//        logger().info("uninserted #f = {}/{}", std::count(is_face_inserted.begin(), is_face_inserted.end(), false),
-//                      is_face_inserted.size() - cnt_matched);
-//    }
+
 
     //////
+    //Looping over faces to be inserted. This is what we parallelize?
     for (int i = 0; i < sorted_f_ids.size(); i++) {
         //fortest
+        //This is just for logging, no actual computation
         if (!is_again && i > 0 && i % 1000 == 0) {
             logger().debug("inserting f{}... {} failed", i, cnt_fail);
             logger().debug("snapped {}/{}", cnt_snapped, cnt_total);
@@ -338,24 +313,14 @@ void floatTetWild::insert_triangles_aux(const std::vector<Vector3> &input_vertic
         }
         //fortest
 
-//        //fortest
-//        if(i>0 && i%10000 == 0) {
-//            logger().info("before opt");
-//            logger().info("#v = {}/{}", mesh.get_v_num(), mesh.tet_vertices.size());
-//            logger().info("#t = {}/{}", mesh.get_t_num(), mesh.tets.size());
-//            optimize_non_surface(input_vertices, input_faces, input_tags, is_face_inserted, track_surface_fs,
-//                                 mesh, tree, is_again);
-//            logger().info("after opt");
-//            logger().info("#v = {}/{}", mesh.get_v_num(), mesh.tet_vertices.size());
-//            logger().info("#t = {}/{}", mesh.get_t_num(), mesh.tets.size());
-//        }
-//        //fortest
 
         int f_id = sorted_f_ids[i];
+        //Move on if inserted
         if (is_face_inserted[f_id])
             continue;
 
         cnt_total++;
+        //Try to tdo the actual insertion
         if (insert_one_triangle(f_id, input_vertices, input_faces, input_tags, mesh, track_surface_fs,
                                 tree, is_again))
             is_face_inserted[f_id] = true;
@@ -405,16 +370,7 @@ void floatTetWild::insert_triangles_aux(const std::vector<Vector3> &input_vertic
     /////
     //build b_tree using b_edges
     tree.init_tmp_b_mesh_and_tree(input_vertices, input_faces, b_edges1, mesh, b_edges2);
-//    for (int v_id = 0; v_id < mesh.tet_vertices.size(); v_id++) {
-//        if (mesh.tet_vertices[v_id].is_removed)
-//            continue;
-//        if (!mesh.tet_vertices[v_id].is_on_boundary)
-//            continue;
-//
-//        GEO::index_t prev_facet;
-//        if (tree.is_out_tmp_b_envelope(mesh.tet_vertices[v_id].pos, mesh.params.eps_2, prev_facet))
-//            mesh.tet_vertices[v_id].is_on_boundary = false;
-//    }
+
 
 #ifdef FLOAT_TETWILD_USE_TBB
     tbb::parallel_for(size_t(0), mesh.tets.size(), [&](size_t i){
@@ -435,36 +391,12 @@ void floatTetWild::insert_triangles_aux(const std::vector<Vector3> &input_vertic
         mesh.is_input_all_inserted = true;
     logger().info("#b_edge1 = {}, #b_edges2 = {}", b_edges1.size(), b_edges2.size());
 
-//    ///fortest
-//    Eigen::MatrixXd V(input_vertices.size(), 3);
-//    Eigen::MatrixXi F(std::count(is_face_inserted.begin(), is_face_inserted.end(), false), 3);
-//    for (int i = 0; i < input_vertices.size(); i++)
-//        V.row(i) = input_vertices[i];
-//    int cnt = 0;
-//    for (int i = 0; i < input_faces.size(); i++) {
-//        if (is_face_inserted[i])
-//            continue;
-//        F.row(cnt) << input_faces[i][0], input_faces[i][1], input_faces[i][2];
-//        cnt++;
-//    }
-//    igl::writeSTL(mesh.params.output_path+"_"+mesh.params.postfix+"_uninserted.stl", V, F);
-//    //
-//    std::ofstream fout(mesh.params.output_path+"_"+mesh.params.postfix+"_b_es.obj");
-//    for(int i=0;i<tree.tmp_b_mesh.vertices.nb();i++){
-//        fout<<"v "<<tree.tmp_b_mesh.vertices.point(i)[0]<<" "
-//                <<tree.tmp_b_mesh.vertices.point(i)[1]<<" "
-//                <<tree.tmp_b_mesh.vertices.point(i)[2]<<endl;
-//    }
-//    for(int i=0;i<tree.tmp_b_mesh.facets.nb();i++) {
-//        fout << "l " << tree.tmp_b_mesh.facets.vertex(i, 1) + 1 << " "
-//             << tree.tmp_b_mesh.facets.vertex(i, 2) + 1 << endl;
-//    }
-//    fout.close();
-//    //fortest
+
 
     pausee();
 }
 
+//This seems to be unused
 bool floatTetWild::insert_multi_triangles(int insert_f_id, const std::vector<Vector3> &input_vertices,
                             const std::vector<Vector3i> &input_faces, const std::vector<int> &input_tags,
                             const std::vector<std::vector<int>>& conn_fs,
@@ -564,6 +496,7 @@ bool floatTetWild::insert_multi_triangles(int insert_f_id, const std::vector<Vec
     return true;
 }
 
+//This seems to be the function we want to parallelize
 bool floatTetWild::insert_one_triangle(int insert_f_id, const std::vector<Vector3> &input_vertices,
         const std::vector<Vector3i> &input_faces, const std::vector<int> &input_tags,
         Mesh &mesh, std::vector<std::array<std::vector<int>, 4>>& track_surface_fs,
@@ -579,6 +512,7 @@ bool floatTetWild::insert_one_triangle(int insert_f_id, const std::vector<Vector
     /////
 //    timer.start();
     std::vector<int> cut_t_ids;
+    //Finds tetrahedra in background mesh cutting face
     find_cutting_tets(insert_f_id, input_vertices, input_faces, vs, mesh, cut_t_ids, is_again);
 //    time_find_cutting_tets += timer.getElapsedTime();
 
@@ -597,12 +531,15 @@ bool floatTetWild::insert_one_triangle(int insert_f_id, const std::vector<Vector
 //    timer.start();
 //    igl::Timer timer1;
 //    timer1.start();
+    //What does cut mesh do?
+    //Constructs cut mesh
     CutMesh cut_mesh(mesh, n, vs);
     cut_mesh.construct(cut_t_ids);
 //    time_cut_mesh1 += timer1.getElapsedTime();
 //    timer1.start();
 //    bool is_expanded = false;//fortest
 
+    //Try snapping to plane
     if (cut_mesh.snap_to_plane()) {
         cnt_snapped++;
         cut_mesh.project_to_plane(input_vertices.size());
@@ -1401,9 +1338,9 @@ bool floatTetWild::subdivide_tets(int insert_f_id, Mesh& mesh, CutMesh& cut_mesh
             continue;
         }
 
-	const auto &configs = CutTable::get_tet_confs(config_id);
-	if(configs.empty())
-		continue;
+    const auto &configs = CutTable::get_tet_confs(config_id);
+    if(configs.empty())
+        continue;
 
         /////
         std::vector<Vector2i> my_diags;

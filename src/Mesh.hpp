@@ -108,6 +108,7 @@ public:
         MeshTet(int v0, int v1, int v2, int v3) : indices(v0, v1, v2, v3) {}
 
         inline void reset() {
+            //What is this syntax? Some kind of multimap?
             is_surface_fs = {{NOT_SURFACE, NOT_SURFACE, NOT_SURFACE, NOT_SURFACE}};
             is_bbox_fs = {{NOT_BBOX, NOT_BBOX, NOT_BBOX, NOT_BBOX}};
             opp_t_ids = {{OPP_T_ID_UNKNOWN, OPP_T_ID_UNKNOWN, OPP_T_ID_UNKNOWN, OPP_T_ID_UNKNOWN}};
@@ -158,6 +159,10 @@ public:
         Scalar scalar = 0;
         bool is_removed = false;
         bool is_outside = false;
+
+        //NEW!
+        int cube_index = -1;
+        bool is_in_cube = false;
     };
 
     class Mesh {

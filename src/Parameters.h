@@ -84,6 +84,13 @@ namespace floatTetWild {
         Scalar dd;
         Scalar min_edge_length;
 
+        //NEW!
+        //Assuming this is parameter controlling parallelism?
+#ifdef FLOAT_TETWILD_USE_TBB
+        Vector3 part_width;
+        int blocks_dim[3];
+#endif
+
         Scalar split_threshold;
         Scalar collapse_threshold;
         Scalar split_threshold_2;

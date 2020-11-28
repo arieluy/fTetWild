@@ -23,7 +23,7 @@
 #include <floattetwild/MeshIO.hpp>
 
 namespace floatTetWild {
-	namespace {
+    namespace {
         void
         get_bb_corners(const Parameters &params, const std::vector<Vector3> &vertices, Vector3 &min, Vector3 &max) {
             min = vertices.front();
@@ -161,8 +161,28 @@ namespace floatTetWild {
 //#include <floattetwild/Predicates.hpp>
 //    extern "C" floatTetWild::Scalar orient3d(const floatTetWild::Scalar *pa, const floatTetWild::Scalar *pb, const floatTetWild::Scalar *pc, const floatTetWild::Scalar *pd);
 
-	void FloatTetDelaunay::tetrahedralize(const std::vector<Vector3>& input_vertices, const std::vector<Vector3i>& input_faces, const AABBWrapper &tree,
-	        Mesh &mesh, std::vector<bool> &is_face_inserted) {
+//NEW!
+int get_cube(Mesh mesh, double x,double y,double z){
+    double min_x = mesh.params.bbox_min[0];
+    double min_y = mesh.params.bbox_min[1];
+    double min_z = mesh.params.bbox_min[2];
+
+    double centered_x = x - min_x;
+    double centered_y = y - min_y;
+    double centered_z = z-min_z;
+
+    int index_x = (int)(centered_x/mesh.params.part_width[0]);
+    int index_y = (int)(centered_y/mesh.params.part_width[1]);
+    int index_z = (int)(centered_z/mesh.params.part_width[2]);
+
+    int index = index_x + index_y*mesh.params.blocks_dim[0] + index_z*mesh.params.blocks_dim[0]*mesh.params.blocks_dim[1]; 
+    return index;
+}
+
+
+//Does this generate the background mesh?
+    void FloatTetDelaunay::tetrahedralize(const std::vector<Vector3>& input_vertices, const std::vector<Vector3i>& input_faces, const AABBWrapper &tree,
+            Mesh &mesh, std::vector<bool> &is_face_inserted) {
         const Parameters &params = mesh.params;
         auto &tet_vertices = mesh.tet_vertices;
         auto &tets = mesh.tets;
@@ -170,10 +190,31 @@ namespace floatTetWild {
         is_face_inserted.resize(input_faces.size(), false);
 
         Vector3 min, max;
+        //Gets bounding dimensions: sets two Vector3 points as corners of box
         get_bb_corners(params, input_vertices, min, max);
         mesh.params.bbox_min = min;
         mesh.params.bbox_max = max;
 
+        //NEW!
+        //Hopefully mesh params same as main params
+#ifdef  FLOAT_TETWILD_USE_TBB
+        printf("\nBREAKPOINT FloatTetDelaunay: 182\n\n");
+        int procs = mesh.params.num_threads;
+        int procs_squared = procs*procs;
+        double sq = 1.0*procs_squared;
+        Vector3 dims;
+        mesh.params.part_width[0] = (max[0]-min[0])/sq;
+        mesh.params.part_width[1] = (max[1]-min[1])/sq;
+        mesh.params.part_width[2]  = (max[2]-min[2])/sq;
+        mesh.params.blocks_dim[0] = procs_squared;
+        mesh.params.blocks_dim[1] = procs_squared;
+        mesh.params.blocks_dim[2] = procs_squared;
+        //procs_squared blocks in every dimension
+        printf("%f %f %f \n",mesh.params.part_width[0],mesh.params.part_width[1],mesh.params.part_width[2]);
+#endif
+        //END NEW!
+
+        //No boxpoints?
         std::vector<Vector3> boxpoints; //(8);
         // for (int i = 0; i < 8; i++) {
         //     auto &p = boxpoints[i];
@@ -187,6 +228,7 @@ namespace floatTetWild {
         // }
 
 
+        //computing gridding of bounding box
         std::vector<Vector3> voxel_points;
         compute_voxel_points(min, max, params, tree, voxel_points);
 
@@ -229,9 +271,12 @@ namespace floatTetWild {
         GEO::Delaunay_var T = GEO::Delaunay::create(3, "BDEL");
         T->set_vertices(n_pts, V_d.data());
         //
+        //Create delaunay triangulation using tets
         tets.resize(T->nb_cells());
         const auto &tet2v = T->cell_to_v();
+        //Iterating through tets
         for (int i = 0; i < T->nb_cells(); i++) {
+            //setting vertices of each tet
             for (int j = 0; j < 4; ++j) {
                 const int v_id = tet2v[i * 4 + j];
 
@@ -239,10 +284,25 @@ namespace floatTetWild {
                 tet_vertices[v_id].conn_tets.push_back(i);
             }
             std::swap(tets[i][1], tets[i][3]);
+
+            //NEW!
+            //Seems to be very slow?
+#ifdef FLOAT_TETWILD_USE_TBB
+            int c1 = get_cube(mesh,tet_vertices[tets[i][0]].pos[0],tet_vertices[tets[i][0]].pos[1],tet_vertices[tets[i][0]].pos[2]);
+            int c2 = get_cube(mesh,tet_vertices[tets[i][1]].pos[0],tet_vertices[tets[i][1]].pos[1],tet_vertices[tets[i][1]].pos[2]);
+            int c3 = get_cube(mesh,tet_vertices[tets[i][2]].pos[0],tet_vertices[tets[i][2]].pos[1],tet_vertices[tets[i][2]].pos[2]);
+            int c4 = get_cube(mesh,tet_vertices[tets[i][3]].pos[0],tet_vertices[tets[i][3]].pos[1],tet_vertices[tets[i][3]].pos[2]);
+
+            if(c1 == c2 && c3 == c4 && c1 == c3){
+                tets[i].cube_index = c1;
+                tets[i].is_in_cube = true;
+            }
+#endif
         }
 
         for (int i = 0; i < mesh.tets.size(); i++) {
             auto &t = mesh.tets[i];
+            //Quit if got inverted Triangulation
             if (is_inverted(mesh.tet_vertices[t[0]].pos, mesh.tet_vertices[t[1]].pos,
                             mesh.tet_vertices[t[2]].pos, mesh.tet_vertices[t[3]].pos)) {
                 cout << "EXIT_INV" << endl;
