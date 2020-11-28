@@ -200,15 +200,15 @@ int get_cube(Mesh mesh, double x,double y,double z){
 #ifdef  FLOAT_TETWILD_USE_TBB
         printf("\nBREAKPOINT FloatTetDelaunay: 182\n\n");
         int procs = mesh.params.num_threads;
-        int procs_squared = procs*procs;
-        double sq = 1.0*procs_squared;
+        //int procs_squared = procs*procs;
+        double sq = 1.0*procs;
         Vector3 dims;
         mesh.params.part_width[0] = (max[0]-min[0])/sq;
         mesh.params.part_width[1] = (max[1]-min[1])/sq;
         mesh.params.part_width[2]  = (max[2]-min[2])/sq;
-        mesh.params.blocks_dim[0] = procs_squared;
-        mesh.params.blocks_dim[1] = procs_squared;
-        mesh.params.blocks_dim[2] = procs_squared;
+        mesh.params.blocks_dim[0] = procs;
+        mesh.params.blocks_dim[1] = procs;
+        mesh.params.blocks_dim[2] = procs;
         //procs_squared blocks in every dimension
         printf("%f %f %f \n",mesh.params.part_width[0],mesh.params.part_width[1],mesh.params.part_width[2]);
 #endif
@@ -275,6 +275,7 @@ int get_cube(Mesh mesh, double x,double y,double z){
         tets.resize(T->nb_cells());
         const auto &tet2v = T->cell_to_v();
         //Iterating through tets
+        int in_count = 0;
         for (int i = 0; i < T->nb_cells(); i++) {
             //setting vertices of each tet
             for (int j = 0; j < 4; ++j) {
@@ -296,9 +297,15 @@ int get_cube(Mesh mesh, double x,double y,double z){
             if(c1 == c2 && c3 == c4 && c1 == c3){
                 tets[i].cube_index = c1;
                 tets[i].is_in_cube = true;
+                in_count = in_count+1;
             }
+            //Surprisingly almost all tets seem clustered in a box
+            //printf("%d\n",c1);
 #endif
         }
+        printf("Total Tets: %d \n",tets.size());
+        printf("Cubed tets: %d \n\n",in_count);
+
 
         for (int i = 0; i < mesh.tets.size(); i++) {
             auto &t = mesh.tets[i];
@@ -310,87 +317,7 @@ int get_cube(Mesh mesh, double x,double y,double z){
             }
         }
 
-        //fortest
-//        Eigen::MatrixXd VV(mesh.tet_vertices.size(), 3), VVo;
-//        Eigen::VectorXi _1, _2;
-//        for(int i=0;i<mesh.tet_vertices.size();i++){
-//            VV.row(i) = mesh.tet_vertices[i].pos;
-//        }
-//        igl::unique_rows(VV, VVo, _1, _2);
-//        cout<<VV.rows()<<" "<<VVo.rows()<<endl;
-//        cout<<T->nb_vertices()<<endl;
-//        cout<<mesh.tet_vertices.size()<<endl;
-//
-//        cout<<"T->nb_finite_cells() = "<<T->nb_finite_cells()<<endl;
-//        cout<<"T->nb_cells() = "<<T->nb_cells()<<endl;
-//        for (int i=0;i< mesh.tets.size();i++) {
-//            auto &t = mesh.tets[i];
-//            if (-GEO::PCK::orient_3d(mesh.tet_vertices[t[0]].pos.data(), mesh.tet_vertices[t[1]].pos.data(),
-//                                     mesh.tet_vertices[t[2]].pos.data(), mesh.tet_vertices[t[3]].pos.data()) <= 0) {
-//                cout << "inverted found!!!! 1" << endl;
-//                cout<<i<<endl;
-//            }
-//        }
-//        for (int i=0;i< mesh.tets.size();i++) {
-//            auto &t = mesh.tets[i];
-//            if (orient3d(mesh.tet_vertices[t[0]].pos.data(), mesh.tet_vertices[t[1]].pos.data(),
-//                         mesh.tet_vertices[t[2]].pos.data(), mesh.tet_vertices[t[3]].pos.data()) <= 0) {
-//                cout << "inverted found!!!! 2" << endl;
-//                cout<<i<<endl;
-//            }
-//        }
-//        for (int i=0;i< mesh.tets.size();i++) {
-//            auto &t = mesh.tets[i];
-//            if (is_inverted(mesh.tet_vertices[t[0]].pos, mesh.tet_vertices[t[1]].pos,
-//                         mesh.tet_vertices[t[2]].pos, mesh.tet_vertices[t[3]].pos)) {
-//                cout << "inverted found!!!! 3" << endl;
-//                cout<<i<<endl;
-//                t.print();
-//
-//                cout<<std::setprecision(17)<<tet_vertices[t[0]].pos.transpose()<<endl;
-//                cout<<tet_vertices[t[1]].pos.transpose()<<endl;
-//                cout<<tet_vertices[t[2]].pos.transpose()<<endl;
-//                cout<<tet_vertices[t[3]].pos.transpose()<<endl;
-//
-//                cout<<(tet_vertices[t[0]].pos[0] == tet_vertices[t[1]].pos[0])<<endl;
-//                cout<<(tet_vertices[t[1]].pos[0] == tet_vertices[t[2]].pos[0])<<endl;
-//                cout<<(tet_vertices[t[2]].pos[0] == tet_vertices[t[3]].pos[0])<<endl;
-//
-//                cout<<(tet_vertices[t[0]].pos[1] == tet_vertices[t[3]].pos[1])<<endl;
-//                cout<<(tet_vertices[t[1]].pos[1] == tet_vertices[t[2]].pos[1])<<endl;
-//
-//                cout<<(tet_vertices[t[0]].pos[2] == tet_vertices[t[2]].pos[2])<<endl;
-//                cout<<(tet_vertices[t[1]].pos[2] == tet_vertices[t[3]].pos[2])<<endl;
-//            }
-//        }
-//        pausee();
-//        //fortest
-
-//        //set opp_t_ids
-//        for(int t_id = 0;t_id<mesh.tets.size();t_id++) {
-//            auto &t = mesh.tets[t_id];
-//            for (int j = 0; j < 4; j++) {
-//                if (t.opp_t_ids[j] >= 0)
-//                    continue;
-//                std::vector<int> pair;
-//                set_intersection(tet_vertices[t[(j + 1) % 4]].conn_tets,
-//                                 tet_vertices[t[(j + 2) % 4]].conn_tets,
-//                                 tet_vertices[t[(j + 3) % 4]].conn_tets, pair);
-//                if (pair.size() == 2) {
-//                    int opp_t_id = pair[0] == t_id ? pair[1] : pair[0];
-//                    t.opp_t_ids[j] = opp_t_id;
-//                    auto &opp_t = mesh.tets[opp_t_id];
-//                    for (int k = 0; k < 4; k++) {
-//                        if (opp_t[k] != t[(j + 1) % 4] && opp_t[k] != t[(j + 2) % 4] && opp_t[k] != t[(j + 3) % 4])
-//                            opp_t.opp_t_ids[k] = t_id;
-//                    }
-//                }
-//            }
-//        }
-
-        //match faces: should be integer with sign
-        //match bbox 8 facets: should be -1 and 0~5
-//        match_surface_fs(mesh, input_vertices, input_faces, is_face_inserted);
+       
         match_bbox_fs(mesh, min, max);
 
 //        MeshIO::write_mesh("delaunay.msh", mesh);
