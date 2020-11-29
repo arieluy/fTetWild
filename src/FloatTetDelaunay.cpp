@@ -162,6 +162,7 @@ namespace floatTetWild {
 //    extern "C" floatTetWild::Scalar orient3d(const floatTetWild::Scalar *pa, const floatTetWild::Scalar *pb, const floatTetWild::Scalar *pc, const floatTetWild::Scalar *pd);
 
 //NEW!
+#ifdef FLOAT_TETWILD_USE_TBB
 int get_cube(Mesh mesh, double x,double y,double z){
     double min_x = mesh.params.bbox_min[0];
     double min_y = mesh.params.bbox_min[1];
@@ -178,6 +179,7 @@ int get_cube(Mesh mesh, double x,double y,double z){
     int index = index_x + index_y*mesh.params.blocks_dim[0] + index_z*mesh.params.blocks_dim[0]*mesh.params.blocks_dim[1]; 
     return index;
 }
+#endif
 
 
 //Does this generate the background mesh?

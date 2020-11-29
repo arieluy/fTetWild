@@ -242,6 +242,8 @@ void floatTetWild::optimize_non_surface(const std::vector<Vector3> &input_vertic
         v.is_freezed = false;
 }
 
+
+#ifdef FLOAT_TETWILD_USE_TBB
 //NEW!
 int get_cube(floatTetWild::Mesh &mesh, double x,double y,double z){
     double min_x = mesh.params.bbox_min[0];
@@ -275,6 +277,7 @@ int localize_triangle(floatTetWild::Mesh &mesh,const std::vector<floatTetWild::V
 
 //NEW!
 //Putting namespace before function name indexes into namespace, but needs to be declared in namespace
+//ERROR! : Something wrong here
 bool check_tets(std::vector<floatTetWild::Vector3> points, std::vector<floatTetWild::MeshTet> new_tets, floatTetWild::Mesh &mesh){
 
     auto &tets = new_tets;
@@ -282,10 +285,12 @@ bool check_tets(std::vector<floatTetWild::Vector3> points, std::vector<floatTetW
 
     //Will just compute cubes dynamically
     for(int i = 0; i < new_tets.size();++i){
+        //printf("TEST 1\n\n");
         int c1 = get_cube(mesh,points[tets[i][0]][0],points[tets[i][0]][1],points[tets[i][0]][2]);
         int c2 = get_cube(mesh,points[tets[i][1]][0],points[tets[i][1]][1],points[tets[i][1]][2]);
         int c3 = get_cube(mesh,points[tets[i][2]][0],points[tets[i][2]][1],points[tets[i][2]][2]);
         int c4 = get_cube(mesh,points[tets[i][3]][0],points[tets[i][3]][1],points[tets[i][3]][2]);
+        //printf("TEST 2\n\n");
 
         if(c1 == c2 && c3 == c4 && c1 == c3){
             tets[i].cube_index = c1;
@@ -300,6 +305,7 @@ bool check_tets(std::vector<floatTetWild::Vector3> points, std::vector<floatTetW
     }
     return true;
 }
+#endif
 
 
 //Actual function we're parallelizing. Just gets called by insert_triangles
@@ -330,20 +336,27 @@ void floatTetWild::insert_triangles_aux(const std::vector<Vector3> &input_vertic
     std::vector<std::array<int, 4>> new_tets;
     int cnt_fail = 0;
     int cnt_total = 0;
+    int cnt_parallel = 0;
 
     //New!
     //Need to compute cubes for triangles
     //Last element of cube_members are unlocalized triangles
     //TODO! : This should be parallelized
+    //Warp join with no boxing of triangles or parallel for with grouping
+    //I think sorting way to go to eliminate extra computation
     parallel_inserting = false;
 #ifdef FLOAT_TETWILD_USE_TBB
-    std::vector<int> triangle_cubes;
+    std::vector<std::vector<int>> block_indices(mesh.params.blocks_dim[0]*mesh.params.blocks_dim[1]*mesh.params.blocks_dim[2]+1);
     for(int i = 0;i < sorted_f_ids.size();++i){
         Vector3i triangle = input_faces[i];
-        //int loc = localize_triangle(mesh,input_vertices,triangle);
-        //triangle_cubes.push_back(loc);
-        triangle_cubes.push_back(-1);
-    }    
+        int loc = localize_triangle(mesh,input_vertices,triangle);
+        //Insert
+        if(loc < 0){loc = block_indices.size()-1;}
+        block_indices[loc].push_back(i);
+        //triangle_cubes.push_back(-1);
+    }  
+
+    printf("\nBREAKPOINT TriangleInsertion: 355\n\n");  
 
     //////
     //Looping over faces to be inserted. This is what we parallelize?
@@ -351,21 +364,24 @@ void floatTetWild::insert_triangles_aux(const std::vector<Vector3> &input_vertic
     //NEW!
     //For now just going to have each thread loop over every triangle
     parallel_inserting = true;
-    tbb::parallel_for(size_t(0), sorted_f_ids.size(), [&](size_t i){
+    tbb::parallel_for(size_t(0), block_indices.size()-1/*B/c last entry for unlocalized*/, [&](size_t i){
     //for (int i = 0; i < sorted_f_ids.size(); i++) {
-
-        int thread_id = tbb::task_arena::current_thread_index();
-        int f_id = sorted_f_ids[i];
-        //Move on if inserted
-        //!Work decomp policy
-        if(!is_face_inserted[f_id] && triangle_cubes[f_id] >= 0 && triangle_cubes[f_id] % mesh.params.num_threads == 0){
-            cnt_total++;
+        for(int j = 0; j < block_indices[i].size(); j++){
+            int f_id = block_indices[i][j];
+            if (is_face_inserted[f_id])
+                continue;
+            //Move on if inserted
+            //!Work decomp policy
+            cnt_parallel++;
             //Try to tdo the actual insertion
             if (insert_one_triangle(f_id, input_vertices, input_faces, input_tags, mesh, track_surface_fs,
-                                    tree, is_again))
+                                    tree, is_again)){
                 is_face_inserted[f_id] = true;
-            else
+            }
+            else{
                 cnt_fail++;
+                block_indices[block_indices.size()-1].push_back(f_id);
+            }
 
     //        pausee();//fortest
             //REMOVED!
@@ -374,28 +390,30 @@ void floatTetWild::insert_triangles_aux(const std::vector<Vector3> &input_vertic
         }
     });
 
+    printf("\nBREAKPOINT TriangleInsertion: 386\n\n");  
+
     //NEW!
     parallel_inserting = false;
-    for (int i = 0; i < sorted_f_ids.size(); i++) {
+    for (int i = 0; i < block_indices[block_indices.size()-1].size(); i++) {
 
-        int f_id = sorted_f_ids[i];
+        int f_id = block_indices[block_indices.size()-1][i];
         //Move on if inserted
         if (is_face_inserted[f_id])
             continue;
-        //!Work decomp policy
-        if(triangle_cubes[f_id] < 0){
-            cnt_total++;
-            //Try to tdo the actual insertion
-            if (insert_one_triangle(f_id, input_vertices, input_faces, input_tags, mesh, track_surface_fs,
-                                    tree, is_again))
-                is_face_inserted[f_id] = true;
-            else
-                cnt_fail++;
-
-    //        pausee();//fortest
-            if (f_id == III)
-                break;//fortest
+        cnt_total++;
+        //Try to tdo the actual insertion
+        if (insert_one_triangle(f_id, input_vertices, input_faces, input_tags, mesh, track_surface_fs,
+                                tree, is_again))
+            is_face_inserted[f_id] = true;
+        else{
+            cnt_fail++;
+            //If fails should try sequential insertion
+            //block_indices[block_indices.size()-1].push_back(f_id);
         }
+
+//        pausee();//fortest
+        if (f_id == III)
+            break;//fortest
     }
 #else
 
@@ -405,7 +423,6 @@ void floatTetWild::insert_triangles_aux(const std::vector<Vector3> &input_vertic
         //Move on if inserted
         if (is_face_inserted[f_id])
             continue;
-        //!Work decomp policy
         cnt_total++;
         //Try to tdo the actual insertion
         if (insert_one_triangle(f_id, input_vertices, input_faces, input_tags, mesh, track_surface_fs,
@@ -682,6 +699,8 @@ bool floatTetWild::insert_one_triangle(int insert_f_id, const std::vector<Vector
     std::vector<MeshTet> new_tets;
     std::vector<std::array<std::vector<int>, 4>> new_track_surface_fs;
     std::vector<int> modified_t_ids;
+
+    //?What is happening here? We end up returning if we can't subdivide?
     if (!subdivide_tets(insert_f_id, mesh, cut_mesh, points, map_edge_to_intersecting_point, track_surface_fs,
                         cut_t_ids, is_mark_surface,
                         new_tets, new_track_surface_fs, modified_t_ids)) {
@@ -699,14 +718,28 @@ bool floatTetWild::insert_one_triangle(int insert_f_id, const std::vector<Vector
     //Combines new tets with old tets, this is what we halt
     //NEW!
 #ifdef FLOAT_TETWILD_USE_TBB
+
+    std::vector<floatTetWild::Vector3> temp_points(mesh.tet_vertices.size() + points.size());
+    for(int i = 0; i < mesh.tet_vertices.size(); i++){
+        temp_points[i] = mesh.tet_vertices[i].pos;
+    }
+    for (int i = 0; i < points.size(); i++) {
+        temp_points[mesh.tet_vertices.size()+ i] = points[i];
+        //todo: tags???
+    }
+
     //!!Eventually will want to combine tet cube checks into separate file
     //Points array should correspond to new_tets indices?
-    if(parallel_inserting && check_tets(points, new_tets, mesh)){
+    if(parallel_inserting && check_tets(temp_points, new_tets, mesh)){
+        push_new_tets(mesh, track_surface_fs, points, new_tets, new_track_surface_fs, modified_t_ids, is_again);
+    }
+    else if(!parallel_inserting){
         push_new_tets(mesh, track_surface_fs, points, new_tets, new_track_surface_fs, modified_t_ids, is_again);
     }
     else{
         //Failed to insert triangle in parallel
         //!Should make sure gets added to list to iterate in parallel
+
         return false;
     }
 #else
@@ -729,6 +762,7 @@ void floatTetWild::push_new_tets(Mesh &mesh, std::vector<std::array<std::vector<
 //    timer.start();
     ///vs
     const int old_v_size = mesh.tet_vertices.size();
+    //points are only new points
     mesh.tet_vertices.resize(mesh.tet_vertices.size() + points.size());
     for (int i = 0; i < points.size(); i++) {
         mesh.tet_vertices[old_v_size + i].pos = points[i];
@@ -750,12 +784,14 @@ void floatTetWild::push_new_tets(Mesh &mesh, std::vector<std::array<std::vector<
             for (int j = 0; j < 4; j++) {
                 vector_erase(mesh.tet_vertices[mesh.tets[modified_t_ids[i]][j]].conn_tets, modified_t_ids[i]);
             }
+            //Updates modified tets
             mesh.tets[modified_t_ids[i]] = new_tets[i];
             track_surface_fs[modified_t_ids[i]] = new_track_surface_fs[i];
             for (int j = 0; j < 4; j++) {
                 mesh.tet_vertices[mesh.tets[modified_t_ids[i]][j]].conn_tets.push_back(modified_t_ids[i]);
             }
         } else {
+            //New tets
 //            mesh.tets.push_back(new_tets[i]);
 //            track_surface_fs.push_back(new_track_surface_fs[i]);
 //            for (int j = 0; j < 4; j++) {
@@ -1657,6 +1693,7 @@ bool floatTetWild::subdivide_tets(int insert_f_id, Mesh& mesh, CutMesh& cut_mesh
         const auto &new_local_f_ids = CutTable::get_face_id_conf(config_id, diag_config_id);
         for (int i = 0; i < config.size(); i++) {
             const auto &t = config[i];
+            //!New tets with vertices
             new_tets.push_back(MeshTet(map_lv_to_v_id[t[0]], map_lv_to_v_id[t[1]],
                                        map_lv_to_v_id[t[2]], map_lv_to_v_id[t[3]]));
 
