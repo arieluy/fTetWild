@@ -52,6 +52,9 @@ set(SOURCES
 
 	Parameters.h
 
+	Partition.h
+	Partition.cpp
+
 	Types.hpp
 
 	Statistics.h

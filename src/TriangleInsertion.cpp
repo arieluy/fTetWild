@@ -18,6 +18,7 @@
 #include <floattetwild/auto_table.hpp>
 #include <floattetwild/Logger.hpp>
 #include <floattetwild/intersections.h>
+#include <floattetwild/Partition.h>
 
 #include <floattetwild/MeshImprovement.h>//fortest
 
