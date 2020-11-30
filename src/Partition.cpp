@@ -27,7 +27,7 @@
 #include <unordered_map>
 
 //NEW!
-int floatTetWild::get_cube1(floatTetWild::Mesh &mesh, double x,double y,double z){
+int floatTetWild::get_cube(floatTetWild::Mesh &mesh, double x,double y,double z){
     double min_x = mesh.params.bbox_min[0];
     double min_y = mesh.params.bbox_min[1];
     double min_z = mesh.params.bbox_min[2];
@@ -46,10 +46,10 @@ int floatTetWild::get_cube1(floatTetWild::Mesh &mesh, double x,double y,double z
 
 //NEW!
 //Returns index of localization or -1 for none
-int floatTetWild::localize_triangle1(floatTetWild::Mesh &mesh,const std::vector<floatTetWild::Vector3> &input_vertices, floatTetWild::Vector3i triangle){
-    int c1 = get_cube1(mesh,input_vertices[triangle[0]][0],input_vertices[triangle[0]][1],input_vertices[triangle[0]][2]);
-    int c2 = get_cube1(mesh,input_vertices[triangle[1]][0],input_vertices[triangle[1]][1],input_vertices[triangle[1]][2]);
-    int c3 = get_cube1(mesh,input_vertices[triangle[2]][0],input_vertices[triangle[2]][1],input_vertices[triangle[2]][2]);
+int floatTetWild::localize_triangle(floatTetWild::Mesh &mesh,const std::vector<floatTetWild::Vector3> &input_vertices, floatTetWild::Vector3i triangle){
+    int c1 = get_cube(mesh,input_vertices[triangle[0]][0],input_vertices[triangle[0]][1],input_vertices[triangle[0]][2]);
+    int c2 = get_cube(mesh,input_vertices[triangle[1]][0],input_vertices[triangle[1]][1],input_vertices[triangle[1]][2]);
+    int c3 = get_cube(mesh,input_vertices[triangle[2]][0],input_vertices[triangle[2]][1],input_vertices[triangle[2]][2]);
 
     if(c1 == c2 && c2 == c3){
         return c1;
@@ -59,17 +59,17 @@ int floatTetWild::localize_triangle1(floatTetWild::Mesh &mesh,const std::vector<
 
 //NEW!
 //Putting namespace before function name indexes into namespace, but needs to be declared in namespace
-bool floatTetWild::check_tets1(std::vector<floatTetWild::Vector3> points, std::vector<floatTetWild::MeshTet> new_tets, floatTetWild::Mesh &mesh){
+bool floatTetWild::check_tets(std::vector<floatTetWild::Vector3> points, std::vector<floatTetWild::MeshTet> new_tets, floatTetWild::Mesh &mesh){
 
     auto &tets = new_tets;
     auto &tet_vertices = mesh.tet_vertices;
 
     //Will just compute cubes dynamically
     for(int i = 0; i < new_tets.size();++i){
-        int c1 = get_cube1(mesh,points[tets[i][0]][0],points[tets[i][0]][1],points[tets[i][0]][2]);
-        int c2 = get_cube1(mesh,points[tets[i][1]][0],points[tets[i][1]][1],points[tets[i][1]][2]);
-        int c3 = get_cube1(mesh,points[tets[i][2]][0],points[tets[i][2]][1],points[tets[i][2]][2]);
-        int c4 = get_cube1(mesh,points[tets[i][3]][0],points[tets[i][3]][1],points[tets[i][3]][2]);
+        int c1 = get_cube(mesh,points[tets[i][0]][0],points[tets[i][0]][1],points[tets[i][0]][2]);
+        int c2 = get_cube(mesh,points[tets[i][1]][0],points[tets[i][1]][1],points[tets[i][1]][2]);
+        int c3 = get_cube(mesh,points[tets[i][2]][0],points[tets[i][2]][1],points[tets[i][2]][2]);
+        int c4 = get_cube(mesh,points[tets[i][3]][0],points[tets[i][3]][1],points[tets[i][3]][2]);
 
         if(c1 == c2 && c3 == c4 && c1 == c3){
             tets[i].cube_index = c1;
