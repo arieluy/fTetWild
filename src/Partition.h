@@ -19,7 +19,7 @@ namespace floatTetWild {
 
     bool check_tets(std::vector<Vector3> points, std::vector<MeshTet> new_tets, Mesh &mesh);
 
-    void offset_new_tets(std::vector<MeshTet> new_tets, int old_size, int new_size);
+    void offset_new_tets(std::vector<MeshTet> &new_tets, int old_size, int new_size);
 }
 
 
