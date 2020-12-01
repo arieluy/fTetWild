@@ -309,6 +309,9 @@ void floatTetWild::insert_triangles_aux(const std::vector<Vector3> &input_vertic
     parallel_inserting = true;
     tbb::parallel_for(size_t(0), block_indices.size()-1/*B/c last entry for unlocalized*/, [&](size_t i){
     //for (int i = 0; i < sorted_f_ids.size(); i++) {
+    {
+                tbb::mutex::scoped_lock failLock(failMutex);
+
         for(int j = 0; j < block_indices[i].size(); j++){
             int f_id = block_indices[i][j];
             if (is_face_inserted[f_id])
@@ -322,16 +325,15 @@ void floatTetWild::insert_triangles_aux(const std::vector<Vector3> &input_vertic
                 is_face_inserted[f_id] = true;
             }
             else{
-                tbb::mutex::scoped_lock failLock(failMutex);
                 cnt_fail++;
                 block_indices[block_indices.size()-1].push_back(f_id);
             }
-
     //        pausee();//fortest
             //REMOVED!
             /*if (f_id == III)
                 break;*///fortest
         }
+    }
     });
 
     printf("\nBREAKPOINT TriangleInsertion: 386\n\n");  
@@ -544,6 +546,10 @@ bool floatTetWild::insert_one_triangle(int insert_f_id, const std::vector<Vector
     std::vector<std::array<std::vector<int>, 4>> new_track_surface_fs;
     std::vector<int> modified_t_ids;
 
+#ifdef FLOAT_TETWILD_USE_TBB
+    {
+    tbb::mutex::scoped_lock pushNewTetLock(pushNewTetMutex);
+
     int mesh_tet_size;
     //?What is happening here? We end up returning if we can't subdivide?
     if (!subdivide_tets(insert_f_id, mesh, cut_mesh, points, map_edge_to_intersecting_point, track_surface_fs,
@@ -562,14 +568,14 @@ bool floatTetWild::insert_one_triangle(int insert_f_id, const std::vector<Vector
 //    timer.start();
     //Combines new tets with old tets, this is what we halt
     //NEW!
-#ifdef FLOAT_TETWILD_USE_TBB
 
-    std::vector<floatTetWild::Vector3> temp_points(mesh.tet_vertices.size() + points.size());
-    for(int i = 0; i < mesh.tet_vertices.size(); i++){
+
+    std::vector<floatTetWild::Vector3> temp_points(mesh_tet_size + points.size());
+    for(int i = 0; i < mesh_tet_size; i++){
         temp_points[i] = mesh.tet_vertices[i].pos;
     }
     for (int i = 0; i < points.size(); i++) {
-        temp_points[mesh.tet_vertices.size()+ i] = points[i];
+        temp_points[mesh_tet_size + i] = points[i];
         //todo: tags???
     }
 
@@ -579,13 +585,28 @@ bool floatTetWild::insert_one_triangle(int insert_f_id, const std::vector<Vector
         return false;
     }
     else {
-        tbb::mutex::scoped_lock pushNewTetLock(pushNewTetMutex);
+        
         offset_new_tets(new_tets, mesh_tet_size, mesh.tet_vertices.size());
+        printf("new_tets length: %d, points length: %d, mesh tet vertices length %d, old length: %d\n", new_tets.size(), points.size(), mesh_tet_size, mesh.tet_vertices.size());
         push_new_tets(mesh, track_surface_fs, points, new_tets, new_track_surface_fs, modified_t_ids, is_again);
         simplify_subdivision_result(insert_f_id, input_vertices.size(), mesh, tree, track_surface_fs);
     }
+}
 
 #else
+
+    if (!subdivide_tets(insert_f_id, mesh, cut_mesh, points, map_edge_to_intersecting_point, track_surface_fs,
+                        cut_t_ids, is_mark_surface,
+                        new_tets, new_track_surface_fs, modified_t_ids, mesh_tet_size)) {
+//        time_subdivide_tets += timer.getElapsedTime();
+        if(is_again){
+            if(is_uninserted_face_covered(insert_f_id, input_vertices, input_faces, cut_t_ids, mesh))
+                return true;
+        }
+        cout<<"FAIL subdivide_tets"<<endl;
+        return false;
+    }
+
     push_new_tets(mesh, track_surface_fs, points, new_tets, new_track_surface_fs, modified_t_ids, is_again);
     simplify_subdivision_result(insert_f_id, input_vertices.size(), mesh, tree, track_surface_fs);
 //    time_push_new_tets += timer.getElapsedTime();
@@ -604,6 +625,7 @@ void floatTetWild::push_new_tets(Mesh &mesh, std::vector<std::array<std::vector<
     const int old_v_size = mesh.tet_vertices.size();
     //points are only new points
     mesh.tet_vertices.resize(mesh.tet_vertices.size() + points.size());
+    printf("608: %d", mesh.tet_vertices.size());
     for (int i = 0; i < points.size(); i++) {
         mesh.tet_vertices[old_v_size + i].pos = points[i];
         //todo: tags???

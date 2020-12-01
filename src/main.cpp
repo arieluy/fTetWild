@@ -253,7 +253,7 @@ int main(int argc, char **argv) {
     unsigned int num_threads = std::max(1u, std::thread::hardware_concurrency());
     num_threads = std::min(max_threads, num_threads);
     //NEW! : Controlling number of threads
-    //num_threads = 4;
+    num_threads = 1;
     params.num_threads = num_threads;
     std::cout << "TBB threads " << num_threads << std::endl;
     tbb::task_scheduler_init scheduler(num_threads, stack_size);
