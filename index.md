@@ -1,4 +1,4 @@
-##Update
+## Update
 It turns out the parallel meshing problem is fairly similar to the renderer. We have triangles we seek to insert into a backgroud mesh and so we partition the 
 space to parallelize over triangles in a cube. However the problem is harder because the insertion of triangles changes the mesh locally(and globally in some ways)
 so we cannot parallelize over triangles too close to each other, as we could with points in the renderer. 
@@ -10,15 +10,15 @@ can be localized to a cube, it mutates the datastructures in a global way, requi
 this. 
 
 The localization method allows us to make several optimizations not included in the original algorithm. For example, we only need to check if a triangle intersects with 
-tets in its localized cube, instead of looping over all tets as done originally. 
+tets in its localized cube, instead of looping over all tets as done originally.
 
-##New Goals
+## New Goals
 1. Finish implenting parallelization over cubes by addressing global datastructure issues.
 2. Test better space partitioning schemes leading to better workload balance. In particular oct trees.
 3. Finish implementing optimizations afforded by localization
 4. Extend parallel benefits to other operations besides triangle insertion via precomputed localization.
 
-##Revised Schedule
+## Revised Scheduling
 12/3: Fix remaining issues with cubing partioning and start implementing oct tree.
 
 12/7: Finish oct tree. Start final optimizations afforded by localizing triangles. Try to apply to other operations beside triangle insertion
@@ -27,10 +27,10 @@ tets in its localized cube, instead of looping over all tets as done originally.
 
 12/14: Finish all timing and image generation. Have poster and writeup finished for poster session.
 
-##Deliverables
+## Deliverables
 - Images of meshes produced by our implementation
 - Graphs of runtime and speedup compared to the FTetMesh code and other meshing algorithms, both the overall program and the sections we targeted for parallelism
 - Graphs demonstrating the quality of the meshes we produce
 
-##Issues
+## Issues
 ?
