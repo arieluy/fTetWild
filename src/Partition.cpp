@@ -89,3 +89,14 @@ bool floatTetWild::check_tets(std::vector<floatTetWild::Vector3> points, std::ve
     }
     return true;
 }
+
+void floatTetWild::offset_new_tets(std::vector<floatTetWild::MeshTet> new_tets, int old_size, int new_size) {
+    int offset = new_size - old_size;
+    for(int tet = 0; tet < new_tets.size(); ++tet){
+        for(int i = 0; i < 4; ++i){
+            if(new_tets[tet][i] >= old_size){
+                new_tets[tet][i] += offset;
+            }
+        }
+    }
+}

@@ -75,7 +75,7 @@ namespace floatTetWild {
                         std::vector<int> &subdivide_t_ids, std::vector<bool> &is_mark_surface,
                         std::vector<MeshTet> &new_tets,
                         std::vector<std::array<std::vector<int>, 4>> &new_track_surface_fs,
-                        std::vector<int> &modified_t_ids);
+                        std::vector<int> &modified_t_ids, int& mesh_tet_size);
 
     void pair_track_surface_fs(Mesh &mesh, std::vector<std::array<std::vector<int>, 4>> &track_surface_fs);
 

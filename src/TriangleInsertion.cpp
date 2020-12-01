@@ -71,6 +71,10 @@ double old_time_simplify_subdivision_result = 0;
 //NEW!
 bool parallel_inserting;
 
+#ifdef FLOAT_TETWILD_USE_TBB
+tbb::mutex pushNewTetMutex;
+#endif
+
 std::vector<std::array<int, 3>> covered_tet_fs;//fortest
 //fortest
 
@@ -448,106 +452,6 @@ void floatTetWild::insert_triangles_aux(const std::vector<Vector3> &input_vertic
     pausee();
 }
 
-//This seems to be unused
-bool floatTetWild::insert_multi_triangles(int insert_f_id, const std::vector<Vector3> &input_vertices,
-                            const std::vector<Vector3i> &input_faces, const std::vector<int> &input_tags,
-                            const std::vector<std::vector<int>>& conn_fs,
-                            const std::vector<Vector3> &ns, std::vector<bool> & is_visited, std::vector<int>& f_ids,
-                            Mesh &mesh, std::vector<std::array<std::vector<int>, 4>> &track_surface_fs,
-                            AABBWrapper &tree, bool is_again){
-    std::array<Vector3, 3> vs = {{input_vertices[input_faces[insert_f_id][0]],
-                                         input_vertices[input_faces[insert_f_id][1]],
-                                         input_vertices[input_faces[insert_f_id][2]]}};
-    const auto& n = ns[insert_f_id];
-    int t = get_t(vs[0], vs[1], vs[2]);
-
-    f_ids.push_back(insert_f_id);
-    std::queue<int> f_queue;
-    f_queue.push(insert_f_id);
-    while(!f_queue.empty()){
-        int f_id = f_queue.front();
-        f_queue.pop();
-        for(int j=0;j<3;j++){
-            for(int n_f_id: conn_fs[input_faces[f_id][j]]) {
-                if (is_visited[n_f_id] || abs(ns[n_f_id].dot(n) - 1) > 1e-6)
-                    continue;
-                is_visited[n_f_id] = true;
-                f_queue.push(n_f_id);
-                f_ids.push_back(n_f_id);
-            }
-        }
-    }
-    vector_unique(f_ids);
-    if(f_ids.size()<2) {
-        return false;
-    }
-//    cout<<"f_ids.size() = "<<f_ids.size()<<endl;
-
-    std::vector<int> cut_t_ids;
-    for(int f_id: f_ids) {
-        std::array<Vector3, 3> tmp_vs = {{input_vertices[input_faces[f_id][0]],
-                                             input_vertices[input_faces[f_id][1]],
-                                             input_vertices[input_faces[f_id][2]]}};
-        std::vector<int> tmp_cut_t_ids;
-        find_cutting_tets(f_id, input_vertices, input_faces, tmp_vs, mesh, tmp_cut_t_ids, is_again);
-
-        CutMesh cut_mesh(mesh, n, tmp_vs);
-        cut_mesh.construct(tmp_cut_t_ids);
-        if (cut_mesh.snap_to_plane()) {
-            cnt_snapped++;
-            cut_mesh.project_to_plane(input_vertices.size());
-            cut_mesh.expand_new(tmp_cut_t_ids);
-            cut_mesh.project_to_plane(input_vertices.size());
-        }
-        cut_t_ids.insert(cut_t_ids.end(), tmp_cut_t_ids.begin(), tmp_cut_t_ids.end());
-    }
-    vector_unique(cut_t_ids);
-    if (cut_t_ids.empty()) {
-//        cout<<"fail 0"<<endl;
-        return false;
-    }
-
-    CutMesh cut_mesh(mesh, n, vs);
-    cut_mesh.construct(cut_t_ids);
-    cut_mesh.snap_to_plane();
-//    if (cut_mesh.snap_to_plane()) {
-//        cnt_snapped++;
-//        cut_mesh.project_to_plane(input_vertices.size());
-////        cut_mesh.expand_new(cut_t_ids);
-////        cut_mesh.project_to_plane(input_vertices.size());
-//    }
-
-    std::vector<Vector3> points;
-    std::map<std::array<int, 2>, int> map_edge_to_intersecting_point;
-    std::vector<int> subdivide_t_ids;
-    if (!cut_mesh.get_intersecting_edges_and_points(points, map_edge_to_intersecting_point, subdivide_t_ids)) {
-//        cout<<"fail 1"<<endl;
-        return false;
-    }
-
-    vector_unique(cut_t_ids);
-    std::vector<int> tmp;
-    std::set_difference(subdivide_t_ids.begin(), subdivide_t_ids.end(), cut_t_ids.begin(), cut_t_ids.end(),
-                        std::back_inserter(tmp));
-    std::vector<bool> is_mark_surface(cut_t_ids.size(), true);
-    cut_t_ids.insert(cut_t_ids.end(), tmp.begin(), tmp.end());
-    is_mark_surface.resize(is_mark_surface.size() + tmp.size(), false);
-
-    std::vector<MeshTet> new_tets;
-    std::vector<std::array<std::vector<int>, 4>> new_track_surface_fs;
-    std::vector<int> modified_t_ids;
-    if (!subdivide_tets(insert_f_id, mesh, cut_mesh, points, map_edge_to_intersecting_point, track_surface_fs,
-                        cut_t_ids, is_mark_surface,
-                        new_tets, new_track_surface_fs, modified_t_ids)) {
-//        cout<<"fail 2"<<endl;
-        return false;
-    }
-    push_new_tets(mesh, track_surface_fs, points, new_tets, new_track_surface_fs, modified_t_ids, is_again);
-    simplify_subdivision_result(insert_f_id, input_vertices.size(), mesh, tree, track_surface_fs);
-
-    return true;
-}
-
 
 //This seems to be the function we want to parallelize
 bool floatTetWild::insert_one_triangle(int insert_f_id, const std::vector<Vector3> &input_vertices,
@@ -640,10 +544,11 @@ bool floatTetWild::insert_one_triangle(int insert_f_id, const std::vector<Vector
     std::vector<std::array<std::vector<int>, 4>> new_track_surface_fs;
     std::vector<int> modified_t_ids;
 
+    int mesh_tet_size;
     //?What is happening here? We end up returning if we can't subdivide?
     if (!subdivide_tets(insert_f_id, mesh, cut_mesh, points, map_edge_to_intersecting_point, track_surface_fs,
                         cut_t_ids, is_mark_surface,
-                        new_tets, new_track_surface_fs, modified_t_ids)) {
+                        new_tets, new_track_surface_fs, modified_t_ids, mesh_tet_size)) {
 //        time_subdivide_tets += timer.getElapsedTime();
         if(is_again){
             if(is_uninserted_face_covered(insert_f_id, input_vertices, input_faces, cut_t_ids, mesh))
@@ -670,26 +575,21 @@ bool floatTetWild::insert_one_triangle(int insert_f_id, const std::vector<Vector
 
     //!!Eventually will want to combine tet cube checks into separate file
     //Points array should correspond to new_tets indices?
-    if(parallel_inserting && check_tets(temp_points, new_tets, mesh)){
-        push_new_tets(mesh, track_surface_fs, points, new_tets, new_track_surface_fs, modified_t_ids, is_again);
-    }
-    else if(!parallel_inserting){
-        push_new_tets(mesh, track_surface_fs, points, new_tets, new_track_surface_fs, modified_t_ids, is_again);
-    }
-    else{
-        //Failed to insert triangle in parallel
-        //!Should make sure gets added to list to iterate in parallel
-
+    if(parallel_inserting && !check_tets(temp_points, new_tets, mesh)) {
         return false;
     }
+    else {
+        tbb::mutex::scoped_lock pushNewTetLock(pushNewTetMutex);
+        offset_new_tets(new_tets, mesh_tet_size, mesh.tet_vertices.size());
+        push_new_tets(mesh, track_surface_fs, points, new_tets, new_track_surface_fs, modified_t_ids, is_again);
+        simplify_subdivision_result(insert_f_id, input_vertices.size(), mesh, tree, track_surface_fs);
+    }
+
 #else
     push_new_tets(mesh, track_surface_fs, points, new_tets, new_track_surface_fs, modified_t_ids, is_again);
+    simplify_subdivision_result(insert_f_id, input_vertices.size(), mesh, tree, track_surface_fs);
 //    time_push_new_tets += timer.getElapsedTime();
 #endif
-
-//    timer.start();
-    simplify_subdivision_result(insert_f_id, input_vertices.size(), mesh, tree, track_surface_fs);
-//    time_simplify_subdivision_result += timer.getElapsedTime();
 
     return true;
 }
@@ -1335,7 +1235,7 @@ bool floatTetWild::subdivide_tets(int insert_f_id, Mesh& mesh, CutMesh& cut_mesh
         std::vector<std::array<std::vector<int>, 4>>& track_surface_fs,
         std::vector<int>& subdivide_t_ids, std::vector<bool>& is_mark_surface,
         std::vector<MeshTet>& new_tets, std::vector<std::array<std::vector<int>, 4>>& new_track_surface_fs,
-        std::vector<int>& modified_t_ids) {
+        std::vector<int>& modified_t_ids, int& mesh_tet_size) {
 
     static const std::array<std::array<int, 2>, 6> t_es = {{{{0, 1}}, {{1, 2}}, {{2, 0}}, {{0, 3}}, {{1, 3}}, {{2, 3}}}};
     static const std::array<std::array<int, 3>, 4> t_f_es = {{{{1, 5, 4}}, {{5, 3, 2}}, {{3, 0, 4}}, {{0, 1, 2}}}};
@@ -1464,7 +1364,8 @@ bool floatTetWild::subdivide_tets(int insert_f_id, Mesh& mesh, CutMesh& cut_mesh
         /////
         std::map<int, int> map_lv_to_v_id;
         const int v_size = mesh.tet_vertices.size();
-        const int vp_size = mesh.tet_vertices.size() + points.size();
+        const int vp_size = v_size + points.size();
+        mesh_tet_size = v_size;
         for (int i = 0; i < 4; i++)
             map_lv_to_v_id[i] = mesh.tets[t_id][i];
         cnt = 0;
@@ -2027,9 +1928,10 @@ bool floatTetWild::insert_boundary_edges(const std::vector<Vector3> &input_verti
         std::vector<MeshTet> new_tets;
         std::vector<std::array<std::vector<int>, 4>> new_track_surface_fs;
         std::vector<int> modified_t_ids;
+        int dummy;
         if (!subdivide_tets(-1, mesh, empty_cut_mesh, points, map_edge_to_intersecting_point, track_surface_fs,
                             cut_t_ids, is_mark_surface,
-                            new_tets, new_track_surface_fs, modified_t_ids)) {
+                            new_tets, new_track_surface_fs, modified_t_ids, dummy)) {
             bool is_inside_envelope = true;
             for (auto &f: cut_fs) {
 #ifdef NEW_ENVELOPE
