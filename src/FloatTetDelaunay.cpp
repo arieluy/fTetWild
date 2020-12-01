@@ -290,20 +290,20 @@ int get_cube(Mesh mesh, double x,double y,double z){
 
             //NEW!
             //Seems to be very slow?
-#ifdef FLOAT_TETWILD_USE_TBB
-            int c1 = get_cube(mesh,tet_vertices[tets[i][0]].pos[0],tet_vertices[tets[i][0]].pos[1],tet_vertices[tets[i][0]].pos[2]);
-            int c2 = get_cube(mesh,tet_vertices[tets[i][1]].pos[0],tet_vertices[tets[i][1]].pos[1],tet_vertices[tets[i][1]].pos[2]);
-            int c3 = get_cube(mesh,tet_vertices[tets[i][2]].pos[0],tet_vertices[tets[i][2]].pos[1],tet_vertices[tets[i][2]].pos[2]);
-            int c4 = get_cube(mesh,tet_vertices[tets[i][3]].pos[0],tet_vertices[tets[i][3]].pos[1],tet_vertices[tets[i][3]].pos[2]);
+// #ifdef FLOAT_TETWILD_USE_TBB
+//             int c1 = get_cube(mesh,tet_vertices[tets[i][0]].pos[0],tet_vertices[tets[i][0]].pos[1],tet_vertices[tets[i][0]].pos[2]);
+//             int c2 = get_cube(mesh,tet_vertices[tets[i][1]].pos[0],tet_vertices[tets[i][1]].pos[1],tet_vertices[tets[i][1]].pos[2]);
+//             int c3 = get_cube(mesh,tet_vertices[tets[i][2]].pos[0],tet_vertices[tets[i][2]].pos[1],tet_vertices[tets[i][2]].pos[2]);
+//             int c4 = get_cube(mesh,tet_vertices[tets[i][3]].pos[0],tet_vertices[tets[i][3]].pos[1],tet_vertices[tets[i][3]].pos[2]);
 
-            if(c1 == c2 && c3 == c4 && c1 == c3){
-                tets[i].cube_index = c1;
-                tets[i].is_in_cube = true;
-                in_count = in_count+1;
-            }
-            //Surprisingly almost all tets seem clustered in a box
-            //printf("%d\n",c1);
-#endif
+//             if(c1 == c2 && c3 == c4 && c1 == c3){
+//                 tets[i].cube_index = c1;
+//                 tets[i].is_in_cube = true;
+//                 in_count = in_count+1;
+//             }
+//             //Surprisingly almost all tets seem clustered in a box
+//             //printf("%d\n",c1);
+// #endif
         }
         printf("Total Tets: %d \n",tets.size());
         printf("Cubed tets: %d \n\n",in_count);

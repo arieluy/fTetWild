@@ -66,10 +66,11 @@ bool floatTetWild::check_tets(std::vector<floatTetWild::Vector3> points, std::ve
 
     //Will just compute cubes dynamically
     for(int i = 0; i < new_tets.size();++i){
-        if(tets[i].cube_index > 0) {
+
+        if (tets[i].cube_index >= 0) {
           continue;
         }
-        
+
         int c1 = get_cube(mesh,points[tets[i][0]][0],points[tets[i][0]][1],points[tets[i][0]][2]);
         int c2 = get_cube(mesh,points[tets[i][1]][0],points[tets[i][1]][1],points[tets[i][1]][2]);
         int c3 = get_cube(mesh,points[tets[i][2]][0],points[tets[i][2]][1],points[tets[i][2]][2]);
