@@ -32,6 +32,7 @@
 //#include <floattetwild/FloatTetCuttingParallel.h>
 #include <tbb/concurrent_queue.h>
 #include <floattetwild/Partition.h>
+#include <tbb/mutex.h>
 #endif
 
 #include <bitset>
@@ -294,6 +295,8 @@ void floatTetWild::insert_triangles_aux(const std::vector<Vector3> &input_vertic
 
     printf("\nBREAKPOINT TriangleInsertion: 355\n\n");  
 
+    tbb::mutex failMutex;
+
     //////
     //Looping over faces to be inserted. This is what we parallelize?
     //?Unsure how to do tbb?
@@ -315,6 +318,7 @@ void floatTetWild::insert_triangles_aux(const std::vector<Vector3> &input_vertic
                 is_face_inserted[f_id] = true;
             }
             else{
+                tbb::mutex::scoped_lock failLock(failMutex);
                 cnt_fail++;
                 block_indices[block_indices.size()-1].push_back(f_id);
             }
