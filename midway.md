@@ -33,4 +33,4 @@ tets in its localized cube, instead of looping over all tets as done originally.
 - Graphs demonstrating the quality of the meshes we produce
 
 ## Issues
-?
+The global datastructure has been annoying to work with but we think is coming under control.
