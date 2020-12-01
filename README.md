@@ -59,3 +59,4 @@ We will be using C++ since this is the language of our starter code. C++ is also
 ## References
 <https://cs.nyu.edu/~yixinhu/ftetwild.pdf> <br>
 <https://github.com/wildmeshing/fTetWild>
+<https://github.com/auy86/fTetWild/edit/gh-pages/midway.md>
