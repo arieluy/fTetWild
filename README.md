@@ -58,8 +58,4 @@ We will be using C++ since this is the language of our starter code. C++ is also
 
 ## References
 <https://cs.nyu.edu/~yixinhu/ftetwild.pdf> <br>
-
-{% for page in site.pages %}
-    <a href={{ page.filename }}>{{ page.title }}</a>
-{% endfor %}
 <https://github.com/wildmeshing/fTetWild>
