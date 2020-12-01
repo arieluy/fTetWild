@@ -1,9 +1,3 @@
----
-title: Midway Report
-layout: template
-filename: midway.md
---- 
-
 ##Update
 It turns out the parallel meshing problem is fairly similar to the renderer. We have triangles we seek to insert into a backgroud mesh and so we partition the 
 space to parallelize over triangles in a cube. However the problem is harder because the insertion of triangles changes the mesh locally(and globally in some ways)
