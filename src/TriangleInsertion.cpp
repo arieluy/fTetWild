@@ -384,6 +384,8 @@ void floatTetWild::insert_triangles_aux(const std::vector<Vector3> &input_vertic
 
 #endif
 
+    printf("\nFinished inserting triangles loop 387\n");
+
     logger().info("insert_one_triangle * n done, #v = {}, #t = {}", mesh.tet_vertices.size(), mesh.tets.size());
     logger().info("uninserted #f = {}/{}", std::count(is_face_inserted.begin(), is_face_inserted.end(), false),
                   is_face_inserted.size() - cnt_matched);
@@ -483,6 +485,11 @@ bool floatTetWild::insert_one_triangle(int insert_f_id, const std::vector<Vector
     find_cutting_tets(insert_f_id, input_vertices, input_faces, vs, mesh, cut_t_ids, is_again);
 //    time_find_cutting_tets += timer.getElapsedTime();
 
+    if(mesh.tet_vertices.size() != mesh_vert_size){
+        printf("Verts Mutated 487\n");
+        //exit(0);
+    }
+
     //fortest
     myassert(!cut_t_ids.empty(), "cut_t_ids.empty()!!!");
     if (cut_t_ids.empty()) {
@@ -502,6 +509,10 @@ bool floatTetWild::insert_one_triangle(int insert_f_id, const std::vector<Vector
     //Constructs cut mesh
     CutMesh cut_mesh(mesh, n, vs);
     cut_mesh.construct(cut_t_ids);
+    if(mesh.tet_vertices.size() != mesh_vert_size){
+        printf("Verts Mutated 511\n");
+        //exit(0);
+    }
 //    time_cut_mesh1 += timer1.getElapsedTime();
 //    timer1.start();
 //    bool is_expanded = false;//fortest
@@ -518,6 +529,10 @@ bool floatTetWild::insert_one_triangle(int insert_f_id, const std::vector<Vector
 //        if (cnt_proj != cnt_all)
 //            cout << cnt_proj << "/" << cnt_all << endl;
         //fortest
+    }
+    if(mesh.tet_vertices.size() != mesh_vert_size){
+        printf("Verts Mutated 532\n");
+        //exit(0);
     }
 //    time_cut_mesh2 += timer1.getElapsedTime();
 //    time_cut_mesh += timer.getElapsedTime();
@@ -536,6 +551,10 @@ bool floatTetWild::insert_one_triangle(int insert_f_id, const std::vector<Vector
         cout<<"FAIL get_intersecting_edges_and_points"<<endl;
         return false;
     }
+    if(mesh.tet_vertices.size() != mesh_vert_size){
+        printf("Verts Mutated 552\n");
+        //exit(0);
+    }
 //    time_get_intersecting_edges_and_points += timer.getElapsedTime();
     //have to add all cut_t_ids
     vector_unique(cut_t_ids);
@@ -545,6 +564,11 @@ bool floatTetWild::insert_one_triangle(int insert_f_id, const std::vector<Vector
     std::vector<bool> is_mark_surface(cut_t_ids.size(), true);
     cut_t_ids.insert(cut_t_ids.end(), tmp.begin(), tmp.end());
     is_mark_surface.resize(is_mark_surface.size() + tmp.size(), false);
+
+    if(mesh.tet_vertices.size() != mesh_vert_size){
+        printf("Verts Mutated 567\n");
+        //exit(0);
+    }
 //    cout << "cut_mesh.get_intersecting_edges_and_points OK" << endl;
 //    time_get_intersecting_edges_and_points += timer.getElapsedTime();
 
@@ -555,6 +579,7 @@ bool floatTetWild::insert_one_triangle(int insert_f_id, const std::vector<Vector
     std::vector<int> modified_t_ids;
 
     //?What is happening here? We end up returning if we can't subdivide?
+    //Mesh seems to be getting changed in subdivide
     if (!subdivide_tets(insert_f_id, mesh, cut_mesh, points, map_edge_to_intersecting_point, track_surface_fs,
                         cut_t_ids, is_mark_surface,
                         new_tets, new_track_surface_fs, modified_t_ids, mesh_vert_size)) {
@@ -1066,6 +1091,10 @@ bool floatTetWild::subdivide_tets(int insert_f_id, Mesh& mesh, CutMesh& cut_mesh
 //        cout << (m.first[0]) << " " << (m.first[1]) << ": " << mesh.tet_vertices.size() + m.second << endl;
     //fortest
 
+    if(mesh.tet_vertices.size() != mesh_vert_size){
+        printf("Verts Mutated 1093\n");
+    }  
+
     covered_tet_fs.clear();
     for (int I = 0; I < subdivide_t_ids.size(); I++) {
         int t_id = subdivide_t_ids[I];
@@ -1151,6 +1180,11 @@ bool floatTetWild::subdivide_tets(int insert_f_id, Mesh& mesh, CutMesh& cut_mesh
             continue;
         }
 
+    if(mesh.tet_vertices.size() != mesh_vert_size){
+        printf("Verts Mutated 1178\n");
+        //exit(0);
+    }        
+
     const auto &configs = CutTable::get_tet_confs(config_id);
     if(configs.empty())
         continue;
@@ -1184,8 +1218,15 @@ bool floatTetWild::subdivide_tets(int insert_f_id, Mesh& mesh, CutMesh& cut_mesh
         /////
         std::map<int, int> map_lv_to_v_id;
         //NEW!
-        const int v_size =mesh.tet_vertices.size();
+        
+        //const int v_size =mesh.tet_vertices.size();
+        const int v_size = mesh_vert_size;
         const int vp_size = v_size + points.size();
+        if(mesh_vert_size != v_size){
+            printf("Starting mesh_vert_size %d\n",mesh_vert_size);
+            printf("Current mesh_vert_size %d\n",v_size);
+            //exit(0);
+        }
         //NEW!
         //Somehow never reaching here
         //printf("mesh_tet_size set\n");
@@ -1692,7 +1733,8 @@ bool floatTetWild::insert_boundary_edges(const std::vector<Vector3> &input_verti
         std::vector<MeshTet> new_tets;
         std::vector<std::array<std::vector<int>, 4>> new_track_surface_fs;
         std::vector<int> modified_t_ids;
-        int dummy;
+        //NEW!
+        int dummy = mesh.tet_vertices.size();
         if (!subdivide_tets(-1, mesh, empty_cut_mesh, points, map_edge_to_intersecting_point, track_surface_fs,
                             cut_t_ids, is_mark_surface,
                             new_tets, new_track_surface_fs, modified_t_ids, dummy)) {
