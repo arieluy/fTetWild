@@ -279,6 +279,8 @@ void floatTetWild::insert_triangles_aux(const std::vector<Vector3> &input_vertic
     int cnt_total = 0;
     int cnt_parallel = 0;
 
+    igl::Timer timer;
+
     //New!
     //Need to compute cubes for triangles
     //Last element of cube_members are unlocalized triangles
@@ -302,12 +304,18 @@ void floatTetWild::insert_triangles_aux(const std::vector<Vector3> &input_vertic
 
     tbb::mutex failMutex;
 
+    printf("%d cubes\n",block_indices.size());
+    for(int i = 0; i < block_indices.size();i++){
+        printf("%d block has %i triangles\n",i,block_indices[i].size());
+    }
+
     //////
     //Looping over faces to be inserted. This is what we parallelize?
     //?Unsure how to do tbb?
     //NEW!
     //For now just going to have each thread loop over every triangle
     parallel_inserting = true;
+    timer.start();
     tbb::parallel_for(size_t(0), block_indices.size()-1/*B/c last entry for unlocalized*/, [&](size_t i){
     //for (int i = 0; i < sorted_f_ids.size(); i++) {
         for(int j = 0; j < block_indices[i].size(); j++){
@@ -334,6 +342,11 @@ void floatTetWild::insert_triangles_aux(const std::vector<Vector3> &input_vertic
                 break;*///fortest
         }
     });
+
+    double time_inserting_parallel = timer.getElapsedTime();
+    printf("Finished inserting in time %f",time_inserting_parallel);
+
+    exit(0);
 
     printf("\nBREAKPOINT TriangleInsertion: 337\n\n");  
 
@@ -486,7 +499,7 @@ bool floatTetWild::insert_one_triangle(int insert_f_id, const std::vector<Vector
 //    time_find_cutting_tets += timer.getElapsedTime();
 
     if(mesh.tet_vertices.size() != mesh_vert_size){
-        printf("Verts Mutated 487\n");
+        //printf("Verts Mutated 487\n");
         //exit(0);
     }
 
@@ -510,7 +523,7 @@ bool floatTetWild::insert_one_triangle(int insert_f_id, const std::vector<Vector
     CutMesh cut_mesh(mesh, n, vs);
     cut_mesh.construct(cut_t_ids);
     if(mesh.tet_vertices.size() != mesh_vert_size){
-        printf("Verts Mutated 511\n");
+        //printf("Verts Mutated 511\n");
         //exit(0);
     }
 //    time_cut_mesh1 += timer1.getElapsedTime();
@@ -531,7 +544,7 @@ bool floatTetWild::insert_one_triangle(int insert_f_id, const std::vector<Vector
         //fortest
     }
     if(mesh.tet_vertices.size() != mesh_vert_size){
-        printf("Verts Mutated 532\n");
+        //printf("Verts Mutated 532\n");
         //exit(0);
     }
 //    time_cut_mesh2 += timer1.getElapsedTime();
@@ -552,7 +565,7 @@ bool floatTetWild::insert_one_triangle(int insert_f_id, const std::vector<Vector
         return false;
     }
     if(mesh.tet_vertices.size() != mesh_vert_size){
-        printf("Verts Mutated 552\n");
+        //printf("Verts Mutated 552\n");
         //exit(0);
     }
 //    time_get_intersecting_edges_and_points += timer.getElapsedTime();
@@ -566,7 +579,7 @@ bool floatTetWild::insert_one_triangle(int insert_f_id, const std::vector<Vector
     is_mark_surface.resize(is_mark_surface.size() + tmp.size(), false);
 
     if(mesh.tet_vertices.size() != mesh_vert_size){
-        printf("Verts Mutated 567\n");
+        //printf("Verts Mutated 567\n");
         //exit(0);
     }
 //    cout << "cut_mesh.get_intersecting_edges_and_points OK" << endl;
@@ -614,9 +627,9 @@ bool floatTetWild::insert_one_triangle(int insert_f_id, const std::vector<Vector
     }
     else {
         tbb::mutex::scoped_lock pushNewTetLock(pushNewTetMutex);
-        printf("Mesh tet size %d\n",mesh_vert_size);
-        printf("New mesh tet size %d\n",mesh.tet_vertices.size());
-        printf("Num points adding %d\n",points.size());
+        //printf("Mesh tet size %d\n",mesh_vert_size);
+        //printf("New mesh tet size %d\n",mesh.tet_vertices.size());
+        //printf("Num points adding %d\n",points.size());
         offset_new_tets(new_tets, mesh_vert_size, mesh.tet_vertices.size());
         push_new_tets(mesh, track_surface_fs, points, new_tets, new_track_surface_fs, modified_t_ids, is_again);
         //For some reason this presenting problems even when locked
@@ -1092,7 +1105,7 @@ bool floatTetWild::subdivide_tets(int insert_f_id, Mesh& mesh, CutMesh& cut_mesh
     //fortest
 
     if(mesh.tet_vertices.size() != mesh_vert_size){
-        printf("Verts Mutated 1093\n");
+        //printf("Verts Mutated 1093\n");
     }  
 
     covered_tet_fs.clear();
@@ -1181,7 +1194,7 @@ bool floatTetWild::subdivide_tets(int insert_f_id, Mesh& mesh, CutMesh& cut_mesh
         }
 
     if(mesh.tet_vertices.size() != mesh_vert_size){
-        printf("Verts Mutated 1178\n");
+        //printf("Verts Mutated 1178\n");
         //exit(0);
     }        
 
@@ -1223,8 +1236,8 @@ bool floatTetWild::subdivide_tets(int insert_f_id, Mesh& mesh, CutMesh& cut_mesh
         const int v_size = mesh_vert_size;
         const int vp_size = v_size + points.size();
         if(mesh_vert_size != v_size){
-            printf("Starting mesh_vert_size %d\n",mesh_vert_size);
-            printf("Current mesh_vert_size %d\n",v_size);
+            //printf("Starting mesh_vert_size %d\n",mesh_vert_size);
+            //printf("Current mesh_vert_size %d\n",v_size);
             //exit(0);
         }
         //NEW!
