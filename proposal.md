@@ -1,7 +1,7 @@
 ---
-title: Project Proposal
+title: Proposal
 layout: template
-filename: index.md
+filename: proposal.md
 ---
 
 ## Summary
