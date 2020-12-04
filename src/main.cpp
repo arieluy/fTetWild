@@ -253,7 +253,6 @@ int main(int argc, char **argv) {
     unsigned int num_threads = std::max(1u, std::thread::hardware_concurrency());
     num_threads = std::min(max_threads, num_threads);
     //NEW! : Controlling number of threads
-    num_threads = 1;
     params.num_threads = num_threads;
     std::cout << "TBB threads " << num_threads << std::endl;
     tbb::task_scheduler_init scheduler(num_threads, stack_size);
@@ -507,7 +506,7 @@ printf("\nBreakpoint main 471: \n\n");
     printf("\nBreakpoint main 504(Inserting triangles): \n\n");
     insert_triangles(input_vertices, input_faces, input_tags, mesh, is_face_inserted, tree, false);
     printf("\nBreakpoint main 506: \n\n");
-    printf("%f",timer.getElapsedTimeInSec());
+    cout << "Insert triangles time: " << timer.getElapsedTimeInSec() << endl;
     logger().info("cutting {}s", timer.getElapsedTimeInSec());
     logger().info("");
     stats().record(StateInfo::cutting_id, timer.getElapsedTimeInSec(), mesh.get_v_num(), mesh.get_t_num(),
