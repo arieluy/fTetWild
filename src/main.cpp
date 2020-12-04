@@ -507,7 +507,7 @@ printf("\nBreakpoint main 471: \n\n");
     printf("\nBreakpoint main 504(Inserting triangles): \n\n");
     insert_triangles(input_vertices, input_faces, input_tags, mesh, is_face_inserted, tree, false);
     printf("\nBreakpoint main 506: \n\n");
-    printf("%f",timer.getElapsedTimeInSec());
+    cout << "Insert triangles time: " << timer.getElapsedTimeInSec() << endl;
     logger().info("cutting {}s", timer.getElapsedTimeInSec());
     logger().info("");
     stats().record(StateInfo::cutting_id, timer.getElapsedTimeInSec(), mesh.get_v_num(), mesh.get_t_num(),
