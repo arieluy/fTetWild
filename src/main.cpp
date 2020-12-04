@@ -480,6 +480,7 @@ int main(int argc, char **argv) {
     insert_triangles(input_vertices, input_faces, input_tags, mesh, is_face_inserted, tree, false);
     logger().info("cutting {}s", timer.getElapsedTimeInSec());
     logger().info("");
+    cout << "Insert triangles time1: " << timer.getElapsedTimeInSec() << endl;
     stats().record(StateInfo::cutting_id, timer.getElapsedTimeInSec(), mesh.get_v_num(), mesh.get_t_num(),
                    mesh.get_max_energy(), mesh.get_avg_energy(),
                    std::count(is_face_inserted.begin(), is_face_inserted.end(), false));
