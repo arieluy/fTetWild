@@ -72,7 +72,11 @@ double old_time_simplify_subdivision_result = 0;
 bool parallel_inserting;
 
 #ifdef FLOAT_TETWILD_USE_TBB
-tbb::mutex pushNewTetMutex;
+tbb::mutex globalMutex;
+tbb::mutex insertNewTetsMutex;
+tbb::mutex insertNewVerticesMutex;
+tbb::mutex getVertsLengthMutex;
+tbb::mutex offsetMutex;
 #endif
 
 std::vector<std::array<int, 3>> covered_tet_fs;//fortest
@@ -327,7 +331,7 @@ void floatTetWild::insert_triangles_aux(const std::vector<Vector3> &input_vertic
             cnt_parallel++;
             //Try to tdo the actual insertion
             if (insert_one_triangle(f_id, input_vertices, input_faces, input_tags, mesh, track_surface_fs,
-                                    tree, is_again)){
+                                    tree, is_again,i)){
                 is_face_inserted[f_id] = true;
             }
             else{
@@ -344,9 +348,9 @@ void floatTetWild::insert_triangles_aux(const std::vector<Vector3> &input_vertic
     });
 
     double time_inserting_parallel = timer.getElapsedTime();
-    printf("Finished inserting in time %f",time_inserting_parallel);
+    printf("Finished parallel inserting in time %f",time_inserting_parallel);
 
-    exit(0);
+    //exit(0);
 
     printf("\nBREAKPOINT TriangleInsertion: 337\n\n");  
 
@@ -361,7 +365,7 @@ void floatTetWild::insert_triangles_aux(const std::vector<Vector3> &input_vertic
         cnt_total++;
         //Try to tdo the actual insertion
         if (insert_one_triangle(f_id, input_vertices, input_faces, input_tags, mesh, track_surface_fs,
-                                tree, is_again))
+                                tree, is_again,-1))
             is_face_inserted[f_id] = true;
         else{
             cnt_fail++;
@@ -384,7 +388,7 @@ void floatTetWild::insert_triangles_aux(const std::vector<Vector3> &input_vertic
         cnt_total++;
         //Try to tdo the actual insertion
         if (insert_one_triangle(f_id, input_vertices, input_faces, input_tags, mesh, track_surface_fs,
-                                tree, is_again))
+                                tree, is_again,-1))
             is_face_inserted[f_id] = true;
         else
             cnt_fail++;
@@ -473,12 +477,14 @@ void floatTetWild::insert_triangles_aux(const std::vector<Vector3> &input_vertic
 bool floatTetWild::insert_one_triangle(int insert_f_id, const std::vector<Vector3> &input_vertices,
         const std::vector<Vector3i> &input_faces, const std::vector<int> &input_tags,
         Mesh &mesh, std::vector<std::array<std::vector<int>, 4>>& track_surface_fs,
-        AABBWrapper &tree, bool is_again) {
+        AABBWrapper &tree, bool is_again, int localization) {
+
+    
 
     //First we should fix the parameters we're working with(to avoid thread conflicts)
     int mesh_tet_size, mesh_vert_size;
     {
-        tbb::mutex::scoped_lock pushNewTetLock(pushNewTetMutex);
+        tbb::mutex::scoped_lock getVertsLengthLock(getVertsLengthMutex);
         mesh_tet_size = mesh.tets.size();
         mesh_vert_size = mesh.tet_vertices.size();
     }
@@ -495,7 +501,7 @@ bool floatTetWild::insert_one_triangle(int insert_f_id, const std::vector<Vector
 //    timer.start();
     std::vector<int> cut_t_ids;
     //Finds tetrahedra in background mesh cutting face
-    find_cutting_tets(insert_f_id, input_vertices, input_faces, vs, mesh, cut_t_ids, is_again);
+    find_cutting_tets(insert_f_id, input_vertices, input_faces, vs, mesh, cut_t_ids, is_again,localization);
 //    time_find_cutting_tets += timer.getElapsedTime();
 
     if(mesh.tet_vertices.size() != mesh_vert_size){
@@ -593,6 +599,8 @@ bool floatTetWild::insert_one_triangle(int insert_f_id, const std::vector<Vector
 
     //?What is happening here? We end up returning if we can't subdivide?
     //Mesh seems to be getting changed in subdivide
+    {
+        tbb::mutex::scoped_lock globalLock(globalMutex);
     if (!subdivide_tets(insert_f_id, mesh, cut_mesh, points, map_edge_to_intersecting_point, track_surface_fs,
                         cut_t_ids, is_mark_surface,
                         new_tets, new_track_surface_fs, modified_t_ids, mesh_vert_size)) {
@@ -603,6 +611,7 @@ bool floatTetWild::insert_one_triangle(int insert_f_id, const std::vector<Vector
         }
         cout<<"FAIL subdivide_tets"<<endl;
         return false;
+    }
     }
 //    time_subdivide_tets += timer.getElapsedTime();
 
@@ -616,7 +625,7 @@ bool floatTetWild::insert_one_triangle(int insert_f_id, const std::vector<Vector
         temp_points[i] = mesh.tet_vertices[i].pos;
     }
     for (int i = 0; i < points.size(); i++) {
-        temp_points[mesh_vert_size+ i] = points[i];
+        temp_points[mesh_vert_size + i] = points[i];
         //todo: tags???
     }
 
@@ -626,23 +635,27 @@ bool floatTetWild::insert_one_triangle(int insert_f_id, const std::vector<Vector
         return false;
     }
     else {
-        tbb::mutex::scoped_lock pushNewTetLock(pushNewTetMutex);
         //printf("Mesh tet size %d\n",mesh_vert_size);
         //printf("New mesh tet size %d\n",mesh.tet_vertices.size());
         //printf("Num points adding %d\n",points.size());
-        offset_new_tets(new_tets, mesh_vert_size, mesh.tet_vertices.size());
-        push_new_tets(mesh, track_surface_fs, points, new_tets, new_track_surface_fs, modified_t_ids, is_again);
+        //offset_new_tets(new_tets, mesh_vert_size, mesh.tet_vertices.size());
+        
+        {
+        tbb::mutex::scoped_lock globalLock(globalMutex);
+        push_new_tets(mesh, track_surface_fs, points, new_tets, new_track_surface_fs, modified_t_ids, is_again,mesh_vert_size);
+        }
         //For some reason this presenting problems even when locked
         //simplify_subdivision_result(insert_f_id, input_vertices.size(), mesh, tree, track_surface_fs);
         if(!parallel_inserting){
         //!Doing this in parallel is a huge problem
-        //But need to do often enough not to fuck up mesh    
+        //But need to do often enough not to fuck up mesh   
+            //tbb::mutex::scoped_lock globalLock(globalMutex); 
             simplify_subdivision_result(insert_f_id, input_vertices.size(), mesh, tree, track_surface_fs);
         }
     }
 
 #else
-    push_new_tets(mesh, track_surface_fs, points, new_tets, new_track_surface_fs, modified_t_ids, is_again);
+    push_new_tets(mesh, track_surface_fs, points, new_tets, new_track_surface_fs, modified_t_ids, is_again,mesh.tet_vertices.size());
     simplify_subdivision_result(insert_f_id, input_vertices.size(), mesh, tree, track_surface_fs);
 //    time_push_new_tets += timer.getElapsedTime();
 #endif
@@ -653,12 +666,96 @@ bool floatTetWild::insert_one_triangle(int insert_f_id, const std::vector<Vector
 void floatTetWild::push_new_tets(Mesh &mesh, std::vector<std::array<std::vector<int>, 4>> &track_surface_fs,
                                  std::vector<Vector3> &points, std::vector<MeshTet> &new_tets,
                                  std::vector<std::array<std::vector<int>, 4>> &new_track_surface_fs,
+                                 std::vector<int> &modified_t_ids, bool is_again,int mesh_vert_size) {
+//    igl::Timer timer;
+//    timer.start();
+    ///vs
+    int offset;
+    {
+    tbb::mutex::scoped_lock insertNewVerticesLock(insertNewVerticesMutex);
+    const int old_v_size = mesh.tet_vertices.size();
+    offset = old_v_size - mesh_vert_size;
+    //points are only new points
+    mesh.tet_vertices.resize(mesh.tet_vertices.size() + points.size());
+    for (int i = 0; i < points.size(); i++) {
+        mesh.tet_vertices[old_v_size + i].pos = points[i];
+        //todo: tags???
+    }
+    }
+//    time_push_new_tets1 += timer.getElapsedTime();
+
+    ///tets
+//    timer.start();
+//    mesh.tets.reserve(mesh.tets.size() + new_tets.size() - modified_t_ids.size());
+//    time_push_new_tets2 += timer.getElapsedTime();
+
+//    timer.start();
+    {
+    //tbb::mutex::scoped_lock offsetLock(offsetMutex);
+    for (int i = 0; i < new_tets.size(); i++) {
+//        if (is_again)
+//            new_tets[i].quality = get_quality(mesh, new_tets[i]);
+        //do offset
+        //these should all be local operations
+        for(int j = 0; j < 4; ++j){
+            if(new_tets[i][j] >= mesh_vert_size){
+                new_tets[i][j] += offset;
+                //printf("old val: %d, new val: %d\n", new_tets[tet][i]-offset, new_tets[tet][i]);
+            }
+        }
+
+        if (i < modified_t_ids.size()) {
+            for (int j = 0; j < 4; j++) {
+                vector_erase(mesh.tet_vertices[mesh.tets[modified_t_ids[i]][j]].conn_tets, modified_t_ids[i]);
+            }
+            //Updates modified tets
+            mesh.tets[modified_t_ids[i]] = new_tets[i];
+            //?What is this?
+            //Modified t_ids should be localized
+            track_surface_fs[modified_t_ids[i]] = new_track_surface_fs[i];
+            for (int j = 0; j < 4; j++) {
+                //These poitns must be localized
+                mesh.tet_vertices[mesh.tets[modified_t_ids[i]][j]].conn_tets.push_back(modified_t_ids[i]);
+            }
+        } else {
+            //New tets
+//            mesh.tets.push_back(new_tets[i]);
+//            track_surface_fs.push_back(new_track_surface_fs[i]);
+//            for (int j = 0; j < 4; j++) {
+//                mesh.tet_vertices[mesh.tets.back()[j]].conn_tets.push_back(mesh.tets.size() - 1);
+//            }
+            //These points must be localized
+            for (int j = 0; j < 4; j++) {
+                mesh.tet_vertices[new_tets[i][j]].conn_tets.push_back(mesh.tets.size() + i - modified_t_ids.size());
+            }
+        }
+        //todo: tags???
+    }
+
+    }
+//    time_push_new_tets2 += timer.getElapsedTime();
+
+//    timer.start();
+    //Inseting new tets and offset
+    {
+    tbb::mutex::scoped_lock insertNewTetsLock(insertNewTetsMutex);    
+    mesh.tets.insert(mesh.tets.end(), new_tets.begin() + modified_t_ids.size(), new_tets.end());
+    track_surface_fs.insert(track_surface_fs.end(), new_track_surface_fs.begin() + modified_t_ids.size(),
+                            new_track_surface_fs.end());
+    }
+    modified_t_ids.clear();
+//    time_push_new_tets3 += timer.getElapsedTime();
+}
+
+//NEW!
+void floatTetWild::push_new_tets_unchanged(Mesh &mesh, std::vector<std::array<std::vector<int>, 4>> &track_surface_fs,
+                                 std::vector<Vector3> &points, std::vector<MeshTet> &new_tets,
+                                 std::vector<std::array<std::vector<int>, 4>> &new_track_surface_fs,
                                  std::vector<int> &modified_t_ids, bool is_again) {
 //    igl::Timer timer;
 //    timer.start();
     ///vs
     const int old_v_size = mesh.tet_vertices.size();
-    //points are only new points
     mesh.tet_vertices.resize(mesh.tet_vertices.size() + points.size());
     for (int i = 0; i < points.size(); i++) {
         mesh.tet_vertices[old_v_size + i].pos = points[i];
@@ -680,14 +777,12 @@ void floatTetWild::push_new_tets(Mesh &mesh, std::vector<std::array<std::vector<
             for (int j = 0; j < 4; j++) {
                 vector_erase(mesh.tet_vertices[mesh.tets[modified_t_ids[i]][j]].conn_tets, modified_t_ids[i]);
             }
-            //Updates modified tets
             mesh.tets[modified_t_ids[i]] = new_tets[i];
             track_surface_fs[modified_t_ids[i]] = new_track_surface_fs[i];
             for (int j = 0; j < 4; j++) {
                 mesh.tet_vertices[mesh.tets[modified_t_ids[i]][j]].conn_tets.push_back(modified_t_ids[i]);
             }
         } else {
-            //New tets
 //            mesh.tets.push_back(new_tets[i]);
 //            track_surface_fs.push_back(new_track_surface_fs[i]);
 //            for (int j = 0; j < 4; j++) {
@@ -708,6 +803,8 @@ void floatTetWild::push_new_tets(Mesh &mesh, std::vector<std::array<std::vector<
     modified_t_ids.clear();
 //    time_push_new_tets3 += timer.getElapsedTime();
 }
+
+
 
 #include <floattetwild/EdgeCollapsing.h>
 void floatTetWild::simplify_subdivision_result(int insert_f_id, int input_v_size, Mesh &mesh, AABBWrapper &tree,
@@ -847,7 +944,7 @@ void floatTetWild::simplify_subdivision_result(int insert_f_id, int input_v_size
 }
 
 void floatTetWild::find_cutting_tets(int f_id, const std::vector<Vector3> &input_vertices, const std::vector<Vector3i> &input_faces,
-                                     const std::array<Vector3, 3>& vs, Mesh &mesh, std::vector<int> &cut_t_ids, bool is_again) {
+                                     const std::array<Vector3, 3>& vs, Mesh &mesh, std::vector<int> &cut_t_ids, bool is_again, int localization) {
     std::vector<bool> is_visited(mesh.tets.size(), false);
     std::queue<int> queue_t_ids;
 
@@ -875,8 +972,9 @@ void floatTetWild::find_cutting_tets(int f_id, const std::vector<Vector3> &input
         //Parallelize over checking intersections with tets(similar to renderer)
         //?Will we get much speedup if this is already being done?
         //Will only need to check tets in same box?
+        //Seems like somethings wrong here, missing some cases
         tbb::parallel_for(size_t(0), mesh.tets.size(), [&](size_t t_id){
-            if (mesh.tets[t_id].is_removed)
+            if (mesh.tets[t_id].is_removed || (localization >= 0 && mesh.tets[t_id].cube_index >= 0 && mesh.tets[t_id].cube_index != localization))
                 return;
 
             Vector3 min_t, max_t;
@@ -1798,7 +1896,8 @@ bool floatTetWild::insert_boundary_edges(const std::vector<Vector3> &input_verti
 
         //
         timer.start();
-        push_new_tets(mesh, track_surface_fs, points, new_tets, new_track_surface_fs, modified_t_ids, is_again);
+        //NEW! : Had to add dummy to end. should only be executed sequentially?
+        push_new_tets_unchanged(mesh, track_surface_fs, points, new_tets, new_track_surface_fs, modified_t_ids, is_again);
         time5+=timer.getElapsedTime();
 
         //
@@ -1898,6 +1997,8 @@ bool floatTetWild::insert_boundary_edges_get_intersecting_edges_and_points(
             for (const auto &info: covered_fs_infos[f_id])
                 t_ids.push_back(info.first);
         }
+//Checking Tet intersections in parallel
+//Parallelize further via localization??
 #ifdef FLOAT_TETWILD_USE_TBB
         tbb::concurrent_vector<int> tbb_t_ids;
         tbb::parallel_for(size_t(0), mesh.tets.size(), [&](size_t t_id){

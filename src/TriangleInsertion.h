@@ -47,7 +47,12 @@ namespace floatTetWild {
     void push_new_tets(Mesh &mesh, std::vector<std::array<std::vector<int>, 4>> &track_surface_fs,
                        std::vector<Vector3> &points, std::vector<MeshTet> &new_tets,
                        std::vector<std::array<std::vector<int>, 4>> &new_track_surface_fs,
-                       std::vector<int> &modified_t_ids, bool is_again);
+                       std::vector<int> &modified_t_ids, bool is_again,int mesh_tet_size);
+
+    void push_new_tets_unchanged(Mesh &mesh, std::vector<std::array<std::vector<int>, 4>> &track_surface_fs,
+                                 std::vector<Vector3> &points, std::vector<MeshTet> &new_tets,
+                                 std::vector<std::array<std::vector<int>, 4>> &new_track_surface_fs,
+                                 std::vector<int> &modified_t_ids, bool is_again);
 
     void simplify_subdivision_result(int insert_f_id, int input_v_size, Mesh &mesh, AABBWrapper &tree,
                                      std::vector<std::array<std::vector<int>, 4>> &track_surface_fs);
@@ -63,11 +68,11 @@ namespace floatTetWild {
     bool insert_one_triangle(int f_id, const std::vector<Vector3> &input_vertices,
                              const std::vector<Vector3i> &input_faces, const std::vector<int> &input_tags,
                              Mesh &mesh, std::vector<std::array<std::vector<int>, 4>> &track_surface_fs,
-                             AABBWrapper &tree, bool is_again);
+                             AABBWrapper &tree, bool is_again, int localization);
 
     void
     find_cutting_tets(int f_id, const std::vector<Vector3> &input_vertices, const std::vector<Vector3i> &input_faces,
-                      const std::array<Vector3, 3> &vs, Mesh &mesh, std::vector<int> &result, bool is_again);
+                      const std::array<Vector3, 3> &vs, Mesh &mesh, std::vector<int> &result, bool is_again, int localization);
 
     bool subdivide_tets(int insert_f_id, Mesh &mesh, CutMesh &cut_mesh, std::vector<Vector3> &points,
                         std::map<std::array<int, 2>, int> &map_edge_to_intersecting_point,

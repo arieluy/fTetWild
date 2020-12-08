@@ -62,11 +62,13 @@ int floatTetWild::localize_triangle(floatTetWild::Mesh &mesh,const std::vector<f
 bool floatTetWild::check_tets(std::vector<floatTetWild::Vector3> points, std::vector<floatTetWild::MeshTet> new_tets, floatTetWild::Mesh &mesh){
 
     auto &tets = new_tets;
-    auto &tet_vertices = mesh.tet_vertices;
+    //-2 means not initialized, -1 means not localized
 
+    //!!Can speed this up by memoizing cubes: subdivision wont change containment!!
     //Will just compute cubes dynamically
     for(int i = 0; i < new_tets.size();++i){
 
+        //Optimization already done
         if (tets[i].cube_index >= 0) {
           continue;
         }

@@ -161,7 +161,7 @@ public:
         bool is_outside = false;
 
         //NEW!
-        int cube_index = -1;
+        int cube_index = -2;
         bool is_in_cube = false;
     };
 
@@ -173,6 +173,8 @@ public:
 // #else
         std::vector<MeshVertex> tet_vertices;
         std::vector<MeshTet> tets;
+        //May be too much work to be useful
+        //std::vector<std::vector<int>> localized_tets;
 // #endif
 
         Parameters params;
