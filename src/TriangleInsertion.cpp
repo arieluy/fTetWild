@@ -73,6 +73,7 @@ bool parallel_inserting;
 
 #ifdef FLOAT_TETWILD_USE_TBB
 tbb::mutex pushNewTetMutex;
+tbb::mutex subdivideTetMutex;
 #endif
 
 std::vector<std::array<int, 3>> covered_tet_fs;//fortest
@@ -591,6 +592,9 @@ bool floatTetWild::insert_one_triangle(int insert_f_id, const std::vector<Vector
 
     //?What is happening here? We end up returning if we can't subdivide?
     //Mesh seems to be getting changed in subdivide
+
+{
+    tbb::mutex::scoped_lock subdivideTetLock(subdivideTetMutex); 
     if (!subdivide_tets(insert_f_id, mesh, cut_mesh, points, map_edge_to_intersecting_point, track_surface_fs,
                         cut_t_ids, is_mark_surface,
                         new_tets, new_track_surface_fs, modified_t_ids, mesh_vert_size)) {
@@ -602,6 +606,7 @@ bool floatTetWild::insert_one_triangle(int insert_f_id, const std::vector<Vector
         cout<<"FAIL subdivide_tets"<<endl;
         return false;
     }
+}
 //    time_subdivide_tets += timer.getElapsedTime();
 
 //    timer.start();
