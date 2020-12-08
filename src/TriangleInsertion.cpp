@@ -77,6 +77,7 @@ tbb::mutex insertNewTetsMutex;
 tbb::mutex insertNewVerticesMutex;
 tbb::mutex getVertsLengthMutex;
 tbb::mutex offsetMutex;
+tbb::mutex insertTriangleMutex;
 #endif
 
 std::vector<std::array<int, 3>> covered_tet_fs;//fortest
@@ -330,6 +331,8 @@ void floatTetWild::insert_triangles_aux(const std::vector<Vector3> &input_vertic
             //!Work decomp policy
             cnt_parallel++;
             //Try to tdo the actual insertion
+            {
+            tbb::mutex::scoped_lock insertTriangleLock(insertTriangleMutex);
             if (insert_one_triangle(f_id, input_vertices, input_faces, input_tags, mesh, track_surface_fs,
                                     tree, is_again,i)){
                 is_face_inserted[f_id] = true;
@@ -338,6 +341,7 @@ void floatTetWild::insert_triangles_aux(const std::vector<Vector3> &input_vertic
                 tbb::mutex::scoped_lock failLock(failMutex);
                 cnt_fail++;
                 block_indices[block_indices.size()-1].push_back(f_id);
+            }
             }
 
     //        pausee();//fortest
