@@ -336,7 +336,6 @@ void floatTetWild::insert_triangles_aux(const std::vector<Vector3> &input_vertic
             cnt_parallel++;
             //Try to tdo the actual insertion
             {
-            tbb::mutex::scoped_lock insertTriangleLock(insertTriangleMutex);
             if (insert_one_triangle(f_id, input_vertices, input_faces, input_tags, mesh, track_surface_fs,
                                     tree, is_again,i)){
                 is_face_inserted[f_id] = true;
@@ -491,7 +490,6 @@ bool floatTetWild::insert_one_triangle(int insert_f_id, const std::vector<Vector
     //First we should fix the parameters we're working with(to avoid thread conflicts)
     int mesh_tet_size, mesh_vert_size;
     {
-        tbb::mutex::scoped_lock getVertsLengthLock(getVertsLengthMutex);
         mesh_tet_size = mesh.tets.size();
         mesh_vert_size = mesh.tet_vertices.size();
     }
@@ -608,7 +606,7 @@ bool floatTetWild::insert_one_triangle(int insert_f_id, const std::vector<Vector
     //Mesh seems to be getting changed in subdivide
 
 {
-    tbb::mutex::scoped_lock subdivideTetLock(subdivideTetMutex); 
+    tbb::mutex::scoped_lock subdivideTetLock(globalMutex); 
     if (!subdivide_tets(insert_f_id, mesh, cut_mesh, points, map_edge_to_intersecting_point, track_surface_fs,
                         cut_t_ids, is_mark_surface,
                         new_tets, new_track_surface_fs, modified_t_ids, mesh_vert_size)) {
@@ -628,7 +626,7 @@ bool floatTetWild::insert_one_triangle(int insert_f_id, const std::vector<Vector
     //NEW!
 #ifdef FLOAT_TETWILD_USE_TBB
 
-    std::vector<floatTetWild::Vector3> temp_points(mesh_tet_size + points.size());
+    std::vector<floatTetWild::Vector3> temp_points(mesh_vert_size + points.size());
     for(int i = 0; i < mesh_vert_size; i++){
         temp_points[i] = mesh.tet_vertices[i].pos;
     }
@@ -680,7 +678,7 @@ void floatTetWild::push_new_tets(Mesh &mesh, std::vector<std::array<std::vector<
     ///vs
     int offset;
     {
-    tbb::mutex::scoped_lock insertNewVerticesLock(insertNewVerticesMutex);
+    //tbb::mutex::scoped_lock insertNewVerticesLock(globalMutex);
     const int old_v_size = mesh.tet_vertices.size();
     offset = old_v_size - mesh_vert_size;
     //points are only new points
@@ -746,7 +744,7 @@ void floatTetWild::push_new_tets(Mesh &mesh, std::vector<std::array<std::vector<
 //    timer.start();
     //Inseting new tets and offset
     {
-    tbb::mutex::scoped_lock insertNewTetsLock(insertNewTetsMutex);
+    //tbb::mutex::scoped_lock insertNewTetsLock(globalMutex);
     mesh.tets.insert(mesh.tets.end(), new_tets.begin() + modified_t_ids.size(), new_tets.end());
     track_surface_fs.insert(track_surface_fs.end(), new_track_surface_fs.begin() + modified_t_ids.size(),
                             new_track_surface_fs.end());
