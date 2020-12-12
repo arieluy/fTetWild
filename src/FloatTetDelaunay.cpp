@@ -176,7 +176,7 @@ int get_cube(Mesh mesh, double x,double y,double z){
     int index_y = (int)(centered_y/mesh.params.part_width[1]);
     int index_z = (int)(centered_z/mesh.params.part_width[2]);
 
-    int index = index_x + index_y*mesh.params.blocks_dim[0] + index_z*mesh.params.blocks_dim[0]*mesh.params.blocks_dim[1]; 
+    int index = index_x + index_y*mesh.params.blocks_dim[0] + index_z*mesh.params.blocks_dim[0]*mesh.params.blocks_dim[1];
     return index;
 }
 #endif
@@ -208,9 +208,10 @@ int get_cube(Mesh mesh, double x,double y,double z){
         mesh.params.part_width[0] = (max[0]-min[0])/sq;
         mesh.params.part_width[1] = (max[1]-min[1])/sq;
         mesh.params.part_width[2]  = (max[2]-min[2])/sq;
-        mesh.params.blocks_dim[0] = procs;
-        mesh.params.blocks_dim[1] = procs;
-        mesh.params.blocks_dim[2] = procs;
+        int blocks_dim = procs < 8 ? procs : std::cbrt(procs) * 16;
+        mesh.params.blocks_dim[0] = blocks_dim;
+        mesh.params.blocks_dim[1] = blocks_dim;
+        mesh.params.blocks_dim[2] = blocks_dim;
         //procs_squared blocks in every dimension
         printf("%f %f %f \n",mesh.params.part_width[0],mesh.params.part_width[1],mesh.params.part_width[2]);
 #endif
@@ -319,7 +320,7 @@ int get_cube(Mesh mesh, double x,double y,double z){
             }
         }
 
-       
+
         match_bbox_fs(mesh, min, max);
 
 //        MeshIO::write_mesh("delaunay.msh", mesh);
