@@ -353,7 +353,6 @@ void floatTetWild::insert_triangles_aux(const std::vector<Vector3> &input_vertic
             //!Work decomp policy
             cnt_parallel++;
             //Try to tdo the actual insertion
-            {
             if (insert_one_triangle(f_id, input_vertices, input_faces, input_tags, mesh, track_surface_fs,
                                     tree, is_again,i)){
                 is_face_inserted[f_id] = true;
@@ -362,7 +361,6 @@ void floatTetWild::insert_triangles_aux(const std::vector<Vector3> &input_vertic
                 tbb::mutex::scoped_lock failLock(failMutex);
                 cnt_fail++;
                 block_indices[block_indices.size()-1].push_back(f_id);
-            }
             }
 
     //        pausee();//fortest
@@ -610,33 +608,33 @@ bool floatTetWild::insert_one_triangle(int insert_f_id, const std::vector<Vector
     //?What is happening here? We end up returning if we can't subdivide?
     //Mesh seems to be getting changed in subdivide
 
-if(parallel_inserting){
-    tbb::mutex::scoped_lock globalLock(globalMutex); 
-    if (!subdivide_tets(insert_f_id, mesh, cut_mesh, points, map_edge_to_intersecting_point, track_surface_fs,
-                        cut_t_ids, is_mark_surface,
-                        new_tets, new_track_surface_fs, modified_t_ids, mesh_vert_size)) {
-//        time_subdivide_tets += timer.getElapsedTime();
-        if(is_again){
-            if(is_uninserted_face_covered(insert_f_id, input_vertices, input_faces, cut_t_ids, mesh))
-                return true;
+    if(parallel_inserting){
+        tbb::mutex::scoped_lock globalLock(globalMutex); 
+        if (!subdivide_tets(insert_f_id, mesh, cut_mesh, points, map_edge_to_intersecting_point, track_surface_fs,
+                            cut_t_ids, is_mark_surface,
+                            new_tets, new_track_surface_fs, modified_t_ids, mesh_vert_size)) {
+    //        time_subdivide_tets += timer.getElapsedTime();
+            if(is_again){
+                if(is_uninserted_face_covered(insert_f_id, input_vertices, input_faces, cut_t_ids, mesh))
+                    return true;
+            }
+            cout<<"FAIL subdivide_tets"<<endl;
+            return false;
         }
-        cout<<"FAIL subdivide_tets"<<endl;
-        return false;
     }
-}
-else{
-    if (!subdivide_tets(insert_f_id, mesh, cut_mesh, points, map_edge_to_intersecting_point, track_surface_fs,
-                        cut_t_ids, is_mark_surface,
-                        new_tets, new_track_surface_fs, modified_t_ids, mesh_vert_size)) {
-//        time_subdivide_tets += timer.getElapsedTime();
-        if(is_again){
-            if(is_uninserted_face_covered(insert_f_id, input_vertices, input_faces, cut_t_ids, mesh))
-                return true;
+    else{
+        if (!subdivide_tets(insert_f_id, mesh, cut_mesh, points, map_edge_to_intersecting_point, track_surface_fs,
+                            cut_t_ids, is_mark_surface,
+                            new_tets, new_track_surface_fs, modified_t_ids, mesh_vert_size)) {
+    //        time_subdivide_tets += timer.getElapsedTime();
+            if(is_again){
+                if(is_uninserted_face_covered(insert_f_id, input_vertices, input_faces, cut_t_ids, mesh))
+                    return true;
+            }
+            cout<<"FAIL subdivide_tets"<<endl;
+            return false;
         }
-        cout<<"FAIL subdivide_tets"<<endl;
-        return false;
     }
-}
 //    time_subdivide_tets += timer.getElapsedTime();
 
 //    timer.start();
