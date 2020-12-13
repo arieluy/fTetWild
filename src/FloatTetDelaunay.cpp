@@ -206,7 +206,7 @@ int get_cube(Mesh mesh, double x,double y,double z){
         //double sq = 1.0*procs;
         Vector3 dims;
         int blocks_dim = procs < 8 ? procs : ((int) std::cbrt(procs)) * 4;
-        blocks_dim = 10;
+        blocks_dim = 4;
         mesh.params.blocks_dim[0] = blocks_dim;
         mesh.params.blocks_dim[1] = blocks_dim;
         mesh.params.blocks_dim[2] = blocks_dim;
