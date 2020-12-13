@@ -303,7 +303,7 @@ void floatTetWild::insert_triangles_aux(const std::vector<Vector3> &input_vertic
         int loc = localize_triangle(mesh,input_vertices,triangle);
         //Insert
         if(loc < 0){loc = block_indices.size()-1;}
-        block_indices[loc].push_back(i);
+        block_indices.at(loc).push_back(i);
         //triangle_cubes.push_back(-1);
     }
 
@@ -312,11 +312,22 @@ void floatTetWild::insert_triangles_aux(const std::vector<Vector3> &input_vertic
     tbb::mutex failMutex;
 
     printf("%d cubes\n",block_indices.size());
-    if (block_indices.size() < 100) {
-      for(int i = 0; i < block_indices.size();i++){
-          printf("%d block has %i triangles\n",i,block_indices[i].size());
-      }
+    int numZeroBlocks = 0;
+    int nonZeroSum = 0;
+    int size;
+    for(int i = 0; i < block_indices.size();i++){
+        size = block_indices[i].size();
+        if (size == 0) {
+            numZeroBlocks++;
+        } else {
+            nonZeroSum += size;
+        }
+        if (block_indices.size() < 100) {
+            printf("%d block has %i triangles\n",i,size);
+        }
     }
+    double avgNonZero = (double)nonZeroSum / (double)(block_indices.size() - numZeroBlocks);
+    printf("Zero blocks: %d, nonzero blocks: %d, average nonzero: %.2f, num seq triangles: %d\n", numZeroBlocks, (block_indices.size() - numZeroBlocks), avgNonZero, size);
 
     //////
     //Looping over faces to be inserted. This is what we parallelize?
@@ -361,6 +372,7 @@ void floatTetWild::insert_triangles_aux(const std::vector<Vector3> &input_vertic
     printf("\nBREAKPOINT TriangleInsertion: 337\n\n");
 
     //NEW!
+    timer.start();
     parallel_inserting = false;
     for (int i = 0; i < block_indices[block_indices.size()-1].size(); i++) {
 
@@ -383,6 +395,8 @@ void floatTetWild::insert_triangles_aux(const std::vector<Vector3> &input_vertic
         if (f_id == III)
             break;//fortest
     }
+    double time_inserting_sequential = timer.getElapsedTimeInSec();
+    printf("Sequential insertion time %f",time_inserting_sequential);
 #else
 
     for (int i = 0; i < sorted_f_ids.size(); i++) {
