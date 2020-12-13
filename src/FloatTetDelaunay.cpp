@@ -203,15 +203,16 @@ int get_cube(Mesh mesh, double x,double y,double z){
         printf("\nBREAKPOINT FloatTetDelaunay: 182\n\n");
         int procs = mesh.params.num_threads;
         //int procs_squared = procs*procs;
-        double sq = 1.0*procs;
+        //double sq = 1.0*procs;
         Vector3 dims;
-        mesh.params.part_width[0] = (max[0]-min[0])/sq;
-        mesh.params.part_width[1] = (max[1]-min[1])/sq;
-        mesh.params.part_width[2]  = (max[2]-min[2])/sq;
-        int blocks_dim = procs < 8 ? procs : std::cbrt(procs) * 16;
+        int blocks_dim = procs < 8 ? procs : ((int) std::cbrt(procs)) * 4;
+        blocks_dim = 10;
         mesh.params.blocks_dim[0] = blocks_dim;
         mesh.params.blocks_dim[1] = blocks_dim;
         mesh.params.blocks_dim[2] = blocks_dim;
+        mesh.params.part_width[0] = (1.0*(max[0]-min[0]))/(1.0*mesh.params.blocks_dim[0]);
+        mesh.params.part_width[1] = (1.0*(max[1]-min[1]))/(1.0*mesh.params.blocks_dim[1]);
+        mesh.params.part_width[2]  = (1.0*(max[2]-min[2]))/(1.0*mesh.params.blocks_dim[2]);
         //procs_squared blocks in every dimension
         printf("%f %f %f \n",mesh.params.part_width[0],mesh.params.part_width[1],mesh.params.part_width[2]);
 #endif

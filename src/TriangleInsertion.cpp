@@ -73,6 +73,7 @@ bool parallel_inserting;
 
 #ifdef FLOAT_TETWILD_USE_TBB
 tbb::mutex globalMutex;
+tbb::mutex insertLocalizedFaceMutex;
 tbb::mutex insertNewTetsMutex;
 tbb::mutex insertNewVerticesMutex;
 tbb::mutex getVertsLengthMutex;
@@ -276,6 +277,8 @@ void floatTetWild::insert_triangles_aux(const std::vector<Vector3> &input_vertic
 
     //sort the faces?
     //Not actually sure this does anything
+    printf("Number of input triangles: %d\n",input_faces.size());
+    printf("Number of input vertices: %d\n",input_vertices.size());
     std::vector<int> sorted_f_ids;
     sort_input_faces(input_vertices, input_faces, mesh, sorted_f_ids);
 
@@ -298,14 +301,17 @@ void floatTetWild::insert_triangles_aux(const std::vector<Vector3> &input_vertic
     parallel_inserting = false;
 #ifdef FLOAT_TETWILD_USE_TBB
     std::vector<std::vector<int>> block_indices(mesh.params.blocks_dim[0]*mesh.params.blocks_dim[1]*mesh.params.blocks_dim[2]+1);
-    for(int i = 0;i < sorted_f_ids.size();++i){
+    tbb::parallel_for(size_t(0), input_faces.size(), [&](size_t i){
         Vector3i triangle = input_faces[i];
         int loc = localize_triangle(mesh,input_vertices,triangle);
         //Insert
         if(loc < 0){loc = block_indices.size()-1;}
+        //DO WE HAVE TO LOCK THIS?
+        //May be worthwile doing this some other way(think renderer)
+        tbb::mutex::scoped_lock insertLocalizedFaceLock(insertLocalizedFaceMutex);
         block_indices[loc].push_back(i);
         //triangle_cubes.push_back(-1);
-    }
+    });
 
     printf("\nBREAKPOINT TriangleInsertion: 300\n\n");
 
@@ -323,6 +329,7 @@ void floatTetWild::insert_triangles_aux(const std::vector<Vector3> &input_vertic
     //?Unsure how to do tbb?
     //NEW!
     //For now just going to have each thread loop over every triangle
+    printf("Num triangles to be (attempted) inserted in parallel: %d\n",input_faces.size()-block_indices[block_indices.size()-1].size());
     parallel_inserting = true;
     timer.start();
     tbb::parallel_for(size_t(0), block_indices.size()-1/*B/c last entry for unlocalized*/, [&](size_t i){
@@ -356,11 +363,13 @@ void floatTetWild::insert_triangles_aux(const std::vector<Vector3> &input_vertic
 
 
     double time_inserting_parallel = timer.getElapsedTimeInSec();
-    printf("Parallel insertion time %f",time_inserting_parallel);
+    printf("Parallel insertion time %f \n",time_inserting_parallel);
 
     printf("\nBREAKPOINT TriangleInsertion: 337\n\n");
 
     //NEW!
+    printf("Num triangles inserting sequentially: %d\n",block_indices[block_indices.size()-1].size());
+    timer.start();
     parallel_inserting = false;
     for (int i = 0; i < block_indices[block_indices.size()-1].size(); i++) {
 
@@ -383,6 +392,8 @@ void floatTetWild::insert_triangles_aux(const std::vector<Vector3> &input_vertic
         if (f_id == III)
             break;//fortest
     }
+    double time_inserting_sequential = timer.getElapsedTimeInSec();
+    printf("sequential insertion time %f \n",time_inserting_sequential);
 #else
 
     for (int i = 0; i < sorted_f_ids.size(); i++) {
@@ -605,8 +616,21 @@ bool floatTetWild::insert_one_triangle(int insert_f_id, const std::vector<Vector
     //?What is happening here? We end up returning if we can't subdivide?
     //Mesh seems to be getting changed in subdivide
 
-{
-    tbb::mutex::scoped_lock subdivideTetLock(globalMutex); 
+if(parallel_inserting){
+    tbb::mutex::scoped_lock globalLock(globalMutex); 
+    if (!subdivide_tets(insert_f_id, mesh, cut_mesh, points, map_edge_to_intersecting_point, track_surface_fs,
+                        cut_t_ids, is_mark_surface,
+                        new_tets, new_track_surface_fs, modified_t_ids, mesh_vert_size)) {
+//        time_subdivide_tets += timer.getElapsedTime();
+        if(is_again){
+            if(is_uninserted_face_covered(insert_f_id, input_vertices, input_faces, cut_t_ids, mesh))
+                return true;
+        }
+        cout<<"FAIL subdivide_tets"<<endl;
+        return false;
+    }
+}
+else{
     if (!subdivide_tets(insert_f_id, mesh, cut_mesh, points, map_edge_to_intersecting_point, track_surface_fs,
                         cut_t_ids, is_mark_surface,
                         new_tets, new_track_surface_fs, modified_t_ids, mesh_vert_size)) {
@@ -646,18 +670,17 @@ bool floatTetWild::insert_one_triangle(int insert_f_id, const std::vector<Vector
         //printf("Num points adding %d\n",points.size());
         //offset_new_tets(new_tets, mesh_vert_size, mesh.tet_vertices.size());
 
-        {
+        
+        if(parallel_inserting){
         tbb::mutex::scoped_lock globalLock(globalMutex);
         push_new_tets(mesh, track_surface_fs, points, new_tets, new_track_surface_fs, modified_t_ids, is_again,mesh_vert_size);
         }
-        //For some reason this presenting problems even when locked
-        //simplify_subdivision_result(insert_f_id, input_vertices.size(), mesh, tree, track_surface_fs);
-        if(!parallel_inserting){
-        //!Doing this in parallel is a huge problem
-        //But need to do often enough not to fuck up mesh
-            //tbb::mutex::scoped_lock globalLock(globalMutex);
+        else{
+            push_new_tets(mesh, track_surface_fs, points, new_tets, new_track_surface_fs, modified_t_ids, is_again,mesh_vert_size);
             simplify_subdivision_result(insert_f_id, input_vertices.size(), mesh, tree, track_surface_fs);
         }
+        //For some reason this presenting problems even when locked
+        //simplify_subdivision_result(insert_f_id, input_vertices.size(), mesh, tree, track_surface_fs);
     }
 
 #else
