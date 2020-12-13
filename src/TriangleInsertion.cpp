@@ -302,15 +302,17 @@ void floatTetWild::insert_triangles_aux(const std::vector<Vector3> &input_vertic
 #ifdef FLOAT_TETWILD_USE_TBB
     std::vector<std::vector<int>> block_indices(mesh.params.blocks_dim[0]*mesh.params.blocks_dim[1]*mesh.params.blocks_dim[2]+1);
     tbb::parallel_for(size_t(0), input_faces.size(), [&](size_t i){
-        Vector3i triangle = input_faces[i];
-        int loc = localize_triangle(mesh,input_vertices,triangle);
-        //Insert
-        if(loc < 0){loc = block_indices.size()-1;}
-        //DO WE HAVE TO LOCK THIS?
-        //May be worthwile doing this some other way(think renderer)
-        tbb::mutex::scoped_lock insertLocalizedFaceLock(insertLocalizedFaceMutex);
-        block_indices[loc].push_back(i);
-        //triangle_cubes.push_back(-1);
+        //if(!is_face_inserted[i]){
+            Vector3i triangle = input_faces[i];
+            int loc = localize_triangle(mesh,input_vertices,triangle);
+            //Insert
+            if(loc < 0){loc = block_indices.size()-1;}
+            //DO WE HAVE TO LOCK THIS?
+            //May be worthwile doing this some other way(think renderer)
+            tbb::mutex::scoped_lock insertLocalizedFaceLock(insertLocalizedFaceMutex);
+            block_indices[loc].push_back(i);
+            //triangle_cubes.push_back(-1);
+        //}
     });
 
     printf("\nBREAKPOINT TriangleInsertion: 300\n\n");
@@ -636,12 +638,12 @@ else{
 
     if(parallel_inserting){
 
-        std::vector<floatTetWild::Vector3> temp_points(mesh_vert_size + points.size());
+        std::vector<floatTetWild::MeshVertex> temp_points(mesh_vert_size + points.size());
         for(int i = 0; i < mesh_vert_size; i++){
-            temp_points[i] = mesh.tet_vertices[i].pos;
+            temp_points[i].pos = mesh.tet_vertices[i].pos;
         }
         for (int i = 0; i < points.size(); i++) {
-            temp_points[mesh_vert_size + i] = points[i];
+            temp_points[mesh_vert_size + i].pos = points[i];
             //todo: tags???
         }
 

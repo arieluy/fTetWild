@@ -27,29 +27,41 @@
 #include <unordered_map>
 
 //NEW!
-int floatTetWild::get_cube(floatTetWild::Mesh &mesh, double x,double y,double z){
-    double min_x = mesh.params.bbox_min[0];
-    double min_y = mesh.params.bbox_min[1];
-    double min_z = mesh.params.bbox_min[2];
+int floatTetWild::get_cube(floatTetWild::Mesh &mesh, floatTetWild::MeshVertex &vert){
 
-    double centered_x = x - min_x;
-    double centered_y = y - min_y;
-    double centered_z = z-min_z;
+    if(vert.local == -2){
 
-    int index_x = (int)(centered_x/mesh.params.part_width[0]);
-    int index_y = (int)(centered_y/mesh.params.part_width[1]);
-    int index_z = (int)(centered_z/mesh.params.part_width[2]);
+        double x = vert[0];
+        double y = vert[1];
+        double z = vert[2];
 
-    int index = index_x + index_y*mesh.params.blocks_dim[0] + index_z*mesh.params.blocks_dim[0]*mesh.params.blocks_dim[1]; 
-    return index;
+        double min_x = mesh.params.bbox_min[0];
+        double min_y = mesh.params.bbox_min[1];
+        double min_z = mesh.params.bbox_min[2];
+
+        double centered_x = x - min_x;
+        double centered_y = y - min_y;
+        double centered_z = z-min_z;
+
+        int index_x = (int)(centered_x/mesh.params.part_width[0]);
+        int index_y = (int)(centered_y/mesh.params.part_width[1]);
+        int index_z = (int)(centered_z/mesh.params.part_width[2]);
+
+        int index = index_x + index_y*mesh.params.blocks_dim[0] + index_z*mesh.params.blocks_dim[0]*mesh.params.blocks_dim[1]; 
+        vert.local = index;
+        return index;
+    }
+    else{
+        return vert.local;
+    }
 }
 
 //NEW!
 //Returns index of localization or -1 for none
 int floatTetWild::localize_triangle(floatTetWild::Mesh &mesh,const std::vector<floatTetWild::Vector3> &input_vertices, floatTetWild::Vector3i triangle){
-    int c1 = get_cube(mesh,input_vertices[triangle[0]][0],input_vertices[triangle[0]][1],input_vertices[triangle[0]][2]);
-    int c2 = get_cube(mesh,input_vertices[triangle[1]][0],input_vertices[triangle[1]][1],input_vertices[triangle[1]][2]);
-    int c3 = get_cube(mesh,input_vertices[triangle[2]][0],input_vertices[triangle[2]][1],input_vertices[triangle[2]][2]);
+    int c1 = get_cube(mesh,mesh.tet_vertices[triangle[0]]);
+    int c2 = get_cube(mesh,mesh.tet_vertices[triangle[1]]);
+    int c3 = get_cube(mesh,mesh.tet_vertices[triangle[2]]);
 
     if(c1 == c2 && c2 == c3){
         return c1;
@@ -59,7 +71,7 @@ int floatTetWild::localize_triangle(floatTetWild::Mesh &mesh,const std::vector<f
 
 //NEW!
 //Putting namespace before function name indexes into namespace, but needs to be declared in namespace
-bool floatTetWild::check_tets(std::vector<floatTetWild::Vector3> points, std::vector<floatTetWild::MeshTet> new_tets, floatTetWild::Mesh &mesh){
+bool floatTetWild::check_tets(std::vector<floatTetWild::MeshVertex> &points, std::vector<floatTetWild::MeshTet> &new_tets, floatTetWild::Mesh &mesh){
 
     auto &tets = new_tets;
     //-2 means not initialized, -1 means not localized
@@ -73,10 +85,10 @@ bool floatTetWild::check_tets(std::vector<floatTetWild::Vector3> points, std::ve
           continue;
         }
 
-        int c1 = get_cube(mesh,points[tets[i][0]][0],points[tets[i][0]][1],points[tets[i][0]][2]);
-        int c2 = get_cube(mesh,points[tets[i][1]][0],points[tets[i][1]][1],points[tets[i][1]][2]);
-        int c3 = get_cube(mesh,points[tets[i][2]][0],points[tets[i][2]][1],points[tets[i][2]][2]);
-        int c4 = get_cube(mesh,points[tets[i][3]][0],points[tets[i][3]][1],points[tets[i][3]][2]);
+        int c1 = get_cube(mesh,points[tets[i][0]]);
+        int c2 = get_cube(mesh,points[tets[i][1]]);
+        int c3 = get_cube(mesh,points[tets[i][2]]);
+        int c4 = get_cube(mesh,points[tets[i][3]]);
 
         if(c1 == c2 && c3 == c4 && c1 == c3){
             tets[i].cube_index = c1;
@@ -103,4 +115,30 @@ void floatTetWild::offset_new_tets(std::vector<floatTetWild::MeshTet> &new_tets,
             }
         }
     }
+}
+
+//Report octant of point w.r.t base(origin)
+/*int floatTetWild::compute_octant(Vector3 point, Vector3 base){
+
+    int above_x = 0;
+    int above_y = 0;
+    int above_z = 0;
+
+    if(point.x >= base.x)
+        above_x = 1;
+    if(point.y >= base.y)
+        above_y = 1;
+    if(point.z >= base.z)
+        above_z = 1;
+
+
+
+    return 0;
+}*/
+
+
+void floatTetWild::compute_oct_tree(std::vector<floatTetWild::MeshVertex> &verts,Vector3 bottom_left, Vector3 top_right){
+
+
+
 }

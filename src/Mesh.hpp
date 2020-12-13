@@ -97,6 +97,11 @@ public:
         Scalar sizing_scalar = 1;
 
         Scalar scalar = 0;
+        //NEW!
+        //For oct tree will be encoded as base 8 num
+        //Will need to store depth
+        //-1 if not localized
+        int local = -2;
     };
 
     class MeshTet {

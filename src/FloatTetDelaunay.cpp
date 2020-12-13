@@ -22,6 +22,16 @@
 #include <floattetwild/MeshImprovement.h>
 #include <floattetwild/MeshIO.hpp>
 
+#ifdef FLOAT_TETWILD_USE_TBB
+#include <tbb/task_scheduler_init.h>
+#include <tbb/parallel_for.h>
+#include <tbb/atomic.h>
+//#include <floattetwild/FloatTetCuttingParallel.h>
+#include <tbb/concurrent_queue.h>
+#include <floattetwild/Partition.h>
+#include <tbb/mutex.h>
+#endif
+
 namespace floatTetWild {
     namespace {
         void
@@ -161,25 +171,6 @@ namespace floatTetWild {
 //#include <floattetwild/Predicates.hpp>
 //    extern "C" floatTetWild::Scalar orient3d(const floatTetWild::Scalar *pa, const floatTetWild::Scalar *pb, const floatTetWild::Scalar *pc, const floatTetWild::Scalar *pd);
 
-//NEW!
-#ifdef FLOAT_TETWILD_USE_TBB
-int get_cube(Mesh mesh, double x,double y,double z){
-    double min_x = mesh.params.bbox_min[0];
-    double min_y = mesh.params.bbox_min[1];
-    double min_z = mesh.params.bbox_min[2];
-
-    double centered_x = x - min_x;
-    double centered_y = y - min_y;
-    double centered_z = z-min_z;
-
-    int index_x = (int)(centered_x/mesh.params.part_width[0]);
-    int index_y = (int)(centered_y/mesh.params.part_width[1]);
-    int index_z = (int)(centered_z/mesh.params.part_width[2]);
-
-    int index = index_x + index_y*mesh.params.blocks_dim[0] + index_z*mesh.params.blocks_dim[0]*mesh.params.blocks_dim[1];
-    return index;
-}
-#endif
 
 
 //Does this generate the background mesh?
@@ -206,7 +197,7 @@ int get_cube(Mesh mesh, double x,double y,double z){
         //double sq = 1.0*procs;
         Vector3 dims;
         int blocks_dim = procs < 8 ? procs : ((int) std::cbrt(procs)) * 4;
-        blocks_dim = 4;
+        blocks_dim = 10;
         mesh.params.blocks_dim[0] = blocks_dim;
         mesh.params.blocks_dim[1] = blocks_dim;
         mesh.params.blocks_dim[2] = blocks_dim;
@@ -323,6 +314,16 @@ int get_cube(Mesh mesh, double x,double y,double z){
 
 
         match_bbox_fs(mesh, min, max);
+
+#ifdef  FLOAT_TETWILD_USE_TBB
+        //NEW!
+        //Computing localizations for vertices
+        //Should be parallelized!!
+        tbb::parallel_for(size_t(0), mesh.tet_vertices.size(), [&](size_t i){
+            int local = get_cube(mesh,mesh.tet_vertices[i]);
+            mesh.tet_vertices[i].local = local;
+        });
+#endif
 
 //        MeshIO::write_mesh("delaunay.msh", mesh);
     }
