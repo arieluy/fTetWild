@@ -32,6 +32,8 @@
 #include <tbb/mutex.h>
 #endif
 
+#define OCT_THRESHOLD 2000
+
 namespace floatTetWild {
     namespace {
         void
@@ -319,10 +321,12 @@ namespace floatTetWild {
         //NEW!
         //Computing localizations for vertices
         //Should be parallelized!!
-        tbb::parallel_for(size_t(0), mesh.tet_vertices.size(), [&](size_t i){
-            int local = get_cube(mesh,mesh.tet_vertices[i]);
-            mesh.tet_vertices[i].local = local;
-        });
+        std::vector<int> temp;
+        for(int i = 0; i < mesh.tet_vertices.size(); i++){
+            temp.push_back(i);
+        }
+        //Threshold should be computed on number of vertices
+        compute_oct_tree(mesh.tet_vertices,temp, mesh.params.bbox_min, mesh.params.bbox_max,OCT_THRESHOLD,0,0);
 #endif
 
 //        MeshIO::write_mesh("delaunay.msh", mesh);

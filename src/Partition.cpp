@@ -25,31 +25,32 @@
 #include <bitset>
 #include <numeric>
 #include <unordered_map>
+#include <math.h>
+
+std::vector<std::tuple<floatTetWild::Vector3,floatTetWild::Vector3,int>> oct_list;
 
 //NEW!
 int floatTetWild::get_cube(floatTetWild::Mesh &mesh, floatTetWild::MeshVertex &vert){
 
     if(vert.local == -2){
+        int local=-1;
 
-        double x = vert[0];
-        double y = vert[1];
-        double z = vert[2];
+        //This is painful...
+        for(int i = 0; i < oct_list.size();i++){
+            floatTetWild::Vector3 lower = std::get<0>(oct_list[i]);
+            floatTetWild::Vector3 upper = std::get<1>(oct_list[i]);
+            int index = std::get<2>(oct_list[i]);
+            bool between_x = (lower[0]<vert[0] && vert[0] < upper[0]) || (upper[0] < vert[0] && vert[0] < lower[0]);
+            bool between_y = (lower[1]<vert[1] && vert[1] < upper[1]) || (upper[1] < vert[1] && vert[1] < lower[1]);
+            bool between_z = (lower[2]<vert[2] && vert[2] < upper[2]) || (upper[2] < vert[2] && vert[2] < lower[2]);
+            if(between_x && between_y && between_z){
+                local = index;
+                break;
+            }
+        }
 
-        double min_x = mesh.params.bbox_min[0];
-        double min_y = mesh.params.bbox_min[1];
-        double min_z = mesh.params.bbox_min[2];
-
-        double centered_x = x - min_x;
-        double centered_y = y - min_y;
-        double centered_z = z-min_z;
-
-        int index_x = (int)(centered_x/mesh.params.part_width[0]);
-        int index_y = (int)(centered_y/mesh.params.part_width[1]);
-        int index_z = (int)(centered_z/mesh.params.part_width[2]);
-
-        int index = index_x + index_y*mesh.params.blocks_dim[0] + index_z*mesh.params.blocks_dim[0]*mesh.params.blocks_dim[1]; 
-        vert.local = index;
-        return index;
+        vert.local = local;
+        return vert.local;
     }
     else{
         return vert.local;
@@ -58,12 +59,12 @@ int floatTetWild::get_cube(floatTetWild::Mesh &mesh, floatTetWild::MeshVertex &v
 
 //NEW!
 //Returns index of localization or -1 for none
-int floatTetWild::localize_triangle(floatTetWild::Mesh &mesh,const std::vector<floatTetWild::Vector3> &input_vertices, floatTetWild::Vector3i triangle){
+int floatTetWild::localize_triangle(floatTetWild::Mesh &mesh, floatTetWild::Vector3i triangle){
     int c1 = get_cube(mesh,mesh.tet_vertices[triangle[0]]);
     int c2 = get_cube(mesh,mesh.tet_vertices[triangle[1]]);
     int c3 = get_cube(mesh,mesh.tet_vertices[triangle[2]]);
 
-    if(c1 == c2 && c2 == c3){
+    if(c1 == c2 && c2 == c3 && c1 != -1){
         return c1;
     }
     return -1;
@@ -90,7 +91,7 @@ bool floatTetWild::check_tets(std::vector<floatTetWild::MeshVertex> &points, std
         int c3 = get_cube(mesh,points[tets[i][2]]);
         int c4 = get_cube(mesh,points[tets[i][3]]);
 
-        if(c1 == c2 && c3 == c4 && c1 == c3){
+        if(c1 == c2 && c3 == c4 && c1 == c3 && c1 != -1){
             tets[i].cube_index = c1;
             tets[i].is_in_cube = true;
         }
@@ -118,27 +119,88 @@ void floatTetWild::offset_new_tets(std::vector<floatTetWild::MeshTet> &new_tets,
 }
 
 //Report octant of point w.r.t base(origin)
-/*int floatTetWild::compute_octant(Vector3 point, Vector3 base){
-
+int floatTetWild::compute_octant(Vector3 point, Vector3 base){
+//Bottom left is 0th orthant, top right is 7th orthant
     int above_x = 0;
     int above_y = 0;
     int above_z = 0;
 
-    if(point.x >= base.x)
+    if(point[0] >= base[0])
         above_x = 1;
-    if(point.y >= base.y)
+    if(point[1] >= base[1])
         above_y = 1;
-    if(point.z >= base.z)
+    if(point[2] >= base[2])
         above_z = 1;
 
+    return above_x+2*above_y+2*2*above_z;
+}
 
+//Max depth 9
+//Threshold computed based on number of vertices
+void floatTetWild::compute_oct_tree(std::vector<floatTetWild::MeshVertex> &verts,std::vector<int> &indices, Vector3 bottom_left, Vector3 top_right,int threshold,int depth,int index){
 
-    return 0;
-}*/
+    if(indices.size() < threshold || depth >= MAX_DEPTH){
+        for(int i = 0; i < indices.size(); i++){
+            verts[indices[i]].local = index;
+        }
+        oct_list.push_back(std::make_tuple(bottom_left,top_right,index));
+        return;
+    }
 
+    Vector3 base;
+    base[0] = (bottom_left[0]+top_right[0])/2;
+    base[1] = (bottom_left[1]+top_right[1])/2;
+    base[2] = (bottom_left[2]+top_right[2])/2;
 
-void floatTetWild::compute_oct_tree(std::vector<floatTetWild::MeshVertex> &verts,Vector3 bottom_left, Vector3 top_right){
+    std::vector<std::vector<int>> octants(8,std::vector<int>());
 
+    for(int i = 0; i < indices.size(); i++){
+        MeshVertex vert = verts[indices[i]];
+        int octant = compute_octant(vert.pos,base);
+        octants[octant].push_back(indices[i]);
+    }
 
+    depth++;
 
+    Vector3 vect;
+    vect[0] = base[0] - bottom_left[0];
+    vect[1] = base[1] - bottom_left[1];
+    vect[2] = base[2] - bottom_left[2];
+
+    for(int i = 0; i < 8; ++i){
+        int above_x = i % 2;
+        int above_y = (i >> 1) % 2;
+        int above_z = (i >> 2) % 2;
+        above_x = (2*above_x)-1;
+        above_y = (2*above_y)-1;
+        above_z = (2*above_z)-1;
+
+        vect[0] *= above_x;
+        vect[1] *= above_y;
+        vect[2] *= above_z;
+
+        Vector3 pseudo_top_right;
+        pseudo_top_right[0] = base[0]+vect[0];
+        pseudo_top_right[1] = base[1] + vect[1];
+        pseudo_top_right[2] = base[2] + vect[2];
+
+        compute_oct_tree(verts,octants[i],base,vect,threshold,depth,index+(i+1)*(pow(10,MAX_DEPTH-depth)));
+    }
+}
+
+int floatTetWild::cube_index_to_progression(int index){
+    for(int i = 0; i < oct_list.size(); i++){
+        if(index == std::get<2>(oct_list[i])){
+            return i;
+        }
+    }
+    return -1;
+}
+
+int floatTetWild::get_partition_size(){
+    return oct_list.size();
+}
+
+int floatTetWild::progression_to_cube_index(int index){
+    return std::get<2>(oct_list[index]);
 }

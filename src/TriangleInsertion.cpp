@@ -300,17 +300,18 @@ void floatTetWild::insert_triangles_aux(const std::vector<Vector3> &input_vertic
     printf("Localizing triangles\n");
     parallel_inserting = false;
 #ifdef FLOAT_TETWILD_USE_TBB
-    std::vector<std::vector<int>> block_indices(mesh.params.blocks_dim[0]*mesh.params.blocks_dim[1]*mesh.params.blocks_dim[2]+1);
+    std::vector<std::vector<int>> block_indices(get_partition_size()+1);
     tbb::parallel_for(size_t(0), input_faces.size(), [&](size_t i){
         //if(!is_face_inserted[i]){
             Vector3i triangle = input_faces[i];
-            int loc = localize_triangle(mesh,input_vertices,triangle);
+            int loc = localize_triangle(mesh,triangle);
             //Insert
             if(loc < 0){loc = block_indices.size()-1;}
             //DO WE HAVE TO LOCK THIS?
             //May be worthwile doing this some other way(think renderer)
+            else{loc = cube_index_to_progression(loc);}
             tbb::mutex::scoped_lock insertLocalizedFaceLock(insertLocalizedFaceMutex);
-            block_indices[loc].push_back(i);
+            block_indices.at(loc).push_back(i);
             //triangle_cubes.push_back(-1);
         //}
     });
@@ -323,7 +324,7 @@ void floatTetWild::insert_triangles_aux(const std::vector<Vector3> &input_vertic
     int numZeroBlocks = 0;
     int nonZeroSum = 0;
     int size;
-    for(int i = 0; i < block_indices.size();i++){
+    for(int i = 0; i < block_indices.size()-1;i++){
         size = block_indices[i].size();
         if (size == 0) {
             numZeroBlocks++;
@@ -331,11 +332,11 @@ void floatTetWild::insert_triangles_aux(const std::vector<Vector3> &input_vertic
             nonZeroSum += size;
         }
         if (block_indices.size() < 100) {
-            printf("%d block has %i triangles\n",i,size);
+            printf("%d block has %i triangles\n",progression_to_cube_index(i),size);
         }
     }
     double avgNonZero = (double)nonZeroSum / (double)(block_indices.size() - numZeroBlocks);
-    printf("Zero blocks: %d, nonzero blocks: %d, average nonzero: %.2f, num seq triangles: %d\n", numZeroBlocks, (block_indices.size() - numZeroBlocks), avgNonZero, size);
+    printf("Zero blocks: %d, nonzero blocks: %d, average nonzero: %.2f, num seq triangles: %d\n", numZeroBlocks, (block_indices.size() - numZeroBlocks), avgNonZero, block_indices[block_indices.size()-1].size());
 
     //////
     //Looping over faces to be inserted. This is what we parallelize?
