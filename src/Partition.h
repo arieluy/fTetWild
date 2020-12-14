@@ -9,7 +9,8 @@
 #include <tbb/concurrent_vector.h>
 #endif
 
-#define MAX_DEPTH 3
+//Idea: Should tune depth and threshold relative to densest clump(bottleneck)
+#define MAX_DEPTH 9
 
 #include <floattetwild/Rational.h>
 

@@ -346,6 +346,7 @@ void floatTetWild::insert_triangles_aux(const std::vector<Vector3> &input_vertic
     printf("Num triangles to be (attempted) inserted in parallel: %d\n",input_faces.size()-block_indices[block_indices.size()-1].size());
     parallel_inserting = true;
     timer.start();
+    int max_block_size = 0;
     tbb::parallel_for(size_t(0), block_indices.size()-1/*B/c last entry for unlocalized*/, [&](size_t i){
     //for (int i = 0; i < sorted_f_ids.size(); i++) {
         for(int j = 0; j < block_indices[i].size(); j++){
@@ -371,11 +372,13 @@ void floatTetWild::insert_triangles_aux(const std::vector<Vector3> &input_vertic
             /*if (f_id == III)
                 break;*///fortest
         }
+        if(block_indices[i].size() > max_block_size){max_block_size = block_indices[i].size();}
     });
 
 
     double time_inserting_parallel = timer.getElapsedTimeInSec();
     printf("Parallel insertion time %f \n",time_inserting_parallel);
+    printf("Largest cube: %d\n",max_block_size);
 
     printf("Number of triangles actually inserting in sequentially: %d\n",block_indices[block_indices.size()-1].size());
 
