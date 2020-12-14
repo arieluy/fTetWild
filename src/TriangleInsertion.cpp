@@ -377,6 +377,8 @@ void floatTetWild::insert_triangles_aux(const std::vector<Vector3> &input_vertic
     double time_inserting_parallel = timer.getElapsedTimeInSec();
     printf("Parallel insertion time %f \n",time_inserting_parallel);
 
+    printf("Number of triangles actually inserting in sequentially: %d\n",block_indices[block_indices.size()-1].size());
+
     printf("\nBREAKPOINT TriangleInsertion: 337\n\n");
 
     //NEW!
