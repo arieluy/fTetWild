@@ -13,7 +13,8 @@ This project is based on the fTetWild algorithms and code presented in <a href="
 Project Website: <https://auy86.github.io/fTetWild/> <br>
 Project Repo: <https://github.com/auy86/fTetWild/>
 
-## Output images from our algorithm
+## Sample Output
+Here are some examples of outputs from our algorithm, run with uniform partitioning on 16 processors.
 <p>
 <img src="img/skull_output.png" alt="Skull output" width=200/>
 <img src="img/yoda_output.png" alt="Yoda output" width=200/>
@@ -24,3 +25,6 @@ Project Repo: <https://github.com/auy86/fTetWild/>
 <img src="img/keenan_output.png" alt="Mr. Guy output" width=200/>
 <img src="img/bread_output.png" alt="Bread output" width=200/>
 </p>
+
+## Results
+See our <a href="ParallelFinalReport.pdf" target="_blank">Final Report</a> and <a href="https://youtu.be/4iJxYMom9to" target="_blank">Final Presentation</a>.
