@@ -32,7 +32,7 @@
 #include <tbb/mutex.h>
 #endif
 
-#define OCT_THRESHOLD 2000
+#define OCT_THRESHOLD 4000
 
 namespace floatTetWild {
     namespace {

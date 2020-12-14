@@ -9,7 +9,7 @@
 #include <tbb/concurrent_vector.h>
 #endif
 
-#define MAX_DEPTH 6
+#define MAX_DEPTH 3
 
 #include <floattetwild/Rational.h>
 
