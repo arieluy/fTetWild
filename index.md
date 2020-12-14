@@ -25,6 +25,9 @@ Here are some examples of outputs from our algorithm, run with uniform partition
 <img src="img/keenan_output.png" alt="Mr. Guy output" width=200/>
 <img src="img/bread_output.png" alt="Bread output" width=200/>
 </p>
+<p>
+<img src="img/lamby.png" alt="Bread output" width=200/>
+</p>
 
 ## Results
 See our <a href="ParallelFinalReport.pdf" target="_blank">Final Report</a> and <a href="https://youtu.be/4iJxYMom9to" target="_blank">Final Presentation</a>.
