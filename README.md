@@ -1,6 +1,6 @@
 
 
-## See our website at https://auy86.github.io/fTetWild/
+## See our website at https://arieluy.github.io/fTetWild/
 
 
 <br> <br> <br> <br>
