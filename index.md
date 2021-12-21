@@ -10,8 +10,8 @@ shared-memory parallelism on high-core CPU machines.
 
 This project is based on the fTetWild algorithms and code presented in <a href="https://cs.nyu.edu/~yixinhu/ftetwild.pdf">this paper</a>. 
 
-Project Website: <https://auy86.github.io/fTetWild/> <br>
-Project Repo: <https://github.com/auy86/fTetWild/>
+Project Website: <https://arieluy.github.io/fTetWild/> <br>
+Project Repo: <https://github.com/arieluy/fTetWild/>
 
 ## Sample Output
 Here are some examples of outputs from our algorithm, run with uniform partitioning on 16 processors.
